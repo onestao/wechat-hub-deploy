@@ -1,0 +1,37 @@
+# Runtime and research-local data must never enter the deploy repository.
+work/
+upstream/
+.tmp/
+.probe-release/
+.playwright-mcp/
+.learnings/
+
+# Local credentials and databases.
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Generated secrets and key artifacts.
+all_keys*.json
+wxwork_keys*.json
+tools/wechat-decrypt/all_keys*.json
+tools/wechat-decrypt/wxwork_keys*.json
+tools/wechat-decrypt/config.json
+
+# OS and editor noise.
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+node_modules/
+
+# Keep empty workflow/release placeholders visible.
+!.github/workflows/.gitkeep
+!release/.gitkeep
