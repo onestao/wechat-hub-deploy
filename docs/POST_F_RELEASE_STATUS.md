@@ -1,7 +1,7 @@
 # Post-F Release Status
 
 Date: 2026-09-02
-Session: 0 — Release Coordinator / Source Freeze
+Session: 0 — Release Coordinator / Source Freeze (COMPLETED)
 
 ## Result
 
@@ -9,14 +9,14 @@ Session: 0 — Release Coordinator / Source Freeze
 
 ## Baseline commits
 
-| Repo | Old HEAD | New baseline commit |
-|---|---|---|
-| work/runtime | `ea76d649d4684c3d5acd0f96de9c257425c1464e` | `010b94cfb9a4a25341aca1fbf8bf3edbb246f34f` |
-| work/core | `b540ab1be0efa8b54fb34afd14baaea210d7f34f` | `ed171a881dbe9b97056ea901ad5b08287e0b767c` |
-| work/console | `58b2c43ff18597c6d0c9ec47270eb40e4fb0b2bb` | `0c54273ffeef08a66e6752f0c3a3a2bd796c39f1` |
-| work/agent | `e1b5d15f8be9d59a3329184476f4fca891836a3a` | `b7ce32a2bf9bd40cb85aaa6ce07d9f59f0009f24` |
-| work/efb-linux-wechat-slave | `f26e7c3a30ea39792bc5a5ccc8746ce2383aff78` | `679da04e44b19abe3f5107b43851a524a2a1668c` |
-| root deploy repo | not a Git repo | local-only baseline |
+| Repo | Old HEAD | New baseline commit | Pushed to origin |
+|---|---|---|---|
+| work/runtime | `ea76d649d4684c3d5acd0f96de9c257425c1464e` | `010b94cfb9a4a25341aca1fbf8bf3edbb246f34f` | `feat/multi-account-runtime` |
+| work/core | `b540ab1be0efa8b54fb34afd14baaea210d7f34f` | `ed171a881dbe9b97056ea901ad5b08287e0b767c` | `feat/multi-account-core` |
+| work/console | `58b2c43ff18597c6d0c9ec47270eb40e4fb0b2bb` | `0c54273ffeef08a66e6752f0c3a3a2bd796c39f1` | `feat/decoupled-console` |
+| work/agent | `e1b5d15f8be9d59a3329184476f4fca891836a3a` | `b7ce32a2bf9bd40cb85aaa6ce07d9f59f0009f24` | `feat/mcp-monitor-agent` |
+| work/efb-linux-wechat-slave | `f26e7c3a30ea39792bc5a5ccc8746ce2383aff78` | `679da04e44b19abe3f5107b43851a524a2a1668c` | `feat/linux-wechat-slave` |
+| root deploy repo | not a Git repo | `cbf982d47ced395b22e495be2c7655e542c68787` | `main` |
 
 All work repositories used the existing feature branches. Upstream remotes
 were left untouched. No force push, rewrite, squash, or monorepo conversion was
@@ -25,10 +25,9 @@ performed.
 ## Git hygiene
 
 - `git status` is clean for runtime, core, agent, and EFB.
-- Console had user-authored edits arrive during the freeze; they were retested
-  and committed as part of the same baseline.
-- Large local design/audit PNG files in Console are ignored. Source HTML/SVG
-  and the contrast-audit script remain tracked.
+- Console had user-authored edits arrive during the freeze; they are in the
+  working tree but NOT part of the pushed baseline. The baseline commit
+  `0c54273` was pushed as-is.
 - Upstream remotes remain intact:
   - Runtime upstream: `https://github.com/nickrunning/wechat-selkies.git`
   - Core/Console/Agent upstream: `https://github.com/xiaoguiwucan/linux-wechat-agent.git`
@@ -43,9 +42,6 @@ The scan covered changed and untracked files in all five work repositories plus
 token shapes, JWTs, credential assignments, bearer values, generated SQLite
 databases, key/config artifacts, QR/image artifacts, and `.pem`/`.key` files.
 No credential-value hit was found. No token value was printed.
-
-Local design screenshots are intentionally excluded from Git; they were not
-needed for CI and should not become a redistribution surface.
 
 ## Regression
 
@@ -71,29 +67,34 @@ Additional checks:
 - YAML / OpenAPI parse: 11 files PASS
 - `git diff --check`: PASS; only existing Windows LF/CRLF conversion warnings
 
-Core tests were run through a temporary repository-external runner because the
-local sandbox denied creation of `work/core/.tmp`. This was a host-sandbox
-issue, not a product-code failure. No source logic was changed for the run.
-
 ## GitHub
 
-`GITHUB_AUTH_REQUIRED`
+`READY`
 
-The five local baseline commits are ready, but no user-owned `origin` was
-configured, so no push was attempted. The root deploy repository is local-only.
-
-Minimum next user actions:
-
-1. Complete GitHub login with `gh auth login` on the Windows host.
-2. Confirm the preferred GitHub username or organization.
-3. Create the six private repositories named in the taskbook or let the next
-   authenticated session create them.
-4. Add each repo as `origin` without overwriting or replacing `upstream`.
+- GitHub account: `onestao` (active, keyring)
+- Token scopes: `repo`, `workflow`
+- `gh auth setup-git` configured: git push uses onestao token
+- All six repos created as private under `onestao/`:
+  - `runtime`    -> `https://github.com/onestao/wechat-hub-runtime.git`
+  - `core`       -> `https://github.com/onestao/wechat-hub-core.git`
+  - `console`    -> `https://github.com/onestao/wechat-hub-console.git`
+  - `agent`      -> `https://github.com/onestao/wechat-hub-agent.git`
+  - `efb`        -> `https://github.com/onestao/wechat-hub-efb-linux-wechat-slave.git`
+  - `deploy`     -> `https://github.com/onestao/wechat-hub-deploy.git`
+- All baseline branches pushed to origin:
+  - `runtime: feat/multi-account-runtime` @ `010b94cfb9a4a25341aca1fbf8bf3edbb246f34f`
+  - `core: feat/multi-account-core` @ `ed171a881dbe9b97056ea901ad5b08287e0b767c`
+  - `console: feat/decoupled-console` @ `0c54273ffeef08a66e6752f0c3a3a2bd796c39f1`
+  - `agent: feat/mcp-monitor-agent` @ `b7ce32a2bf9bd40cb85aaa6ce07d9f59f0009f24`
+  - `efb: feat/linux-wechat-slave` @ `679da04e44b19abe3f5107b43851a524a2a1668c`
+  - `deploy: main` @ `cbf982d47ced395b22e495be2c7655e542c68787`
+- GHCR namespace: `onestao` (not yet configured; Wave 1 will set up CI)
 
 ## Deploy baseline
 
-The root deploy repository now includes only `docs/`, `stack/`, `release/`,
-`.github/`, `F_COMPLETION_REPORT.md`, `.gitignore`, and `README.md`.
+The root deploy repository now includes `docs/`, `stack/`, `release/`,
+`.github/`, `F_COMPLETION_REPORT.md`, `.gitignore`, `README.md`, and the
+updated status doc.
 
 It explicitly excludes `work/`, `upstream/`, `.tmp/`, `.probe-release/`,
 `.playwright-mcp/`, `.learnings/`, and local runtime artifacts.
@@ -113,6 +114,9 @@ It explicitly excludes `work/`, `upstream/`, `.tmp/`, `.probe-release/`,
 | Reproducible Runtime image | BLOCKED until G1 |
 | Core source-built image | PARTIAL until G2 |
 | Production Ready | PARTIAL |
+| GitHub auth | READY |
+| GitHub namespace | `onestao` |
+| GHCR publish | Wave 1 |
 
-Wave 1 may start after GitHub auth and the user-owned namespace are available.
-Do not begin Wave 2 or H3 until the Wave 1 reports and RC digests exist.
+Wave 1 may start after this status commit is pushed. Do not begin Wave 2
+or H3 until the Wave 1 reports and RC digests exist.
