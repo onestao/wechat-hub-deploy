@@ -47,6 +47,8 @@ docs/SESSION_F_RUNTIME_SENDER_DRIVERS.md
 4. **remote filename preservation = PARTIAL**：上游仍使用 `send_file_<timestamp>_<safe_name>`。
 5. 双 AgentWechat 无发送瞬时资源样本约 2.59 GiB，Docker CPU 瞬时约 85%；尚缺真正长期 idle 平均 CPU 采样。
 6. Native Bridge 仍为 `NOT TESTED / RESERVED`，本阶段不要展开逆向实现。
+7. **Post-F Desktop UX = source complete / live pending**：AgentWechat 账号已新增 Selkies Attach desktop provider，复用同一账号已有 `Xvfb :99` 与唯一 WeChat 进程，补齐本地中文 IME、clipboard、文件 upload/download、resize/DPI 等能力；noVNC 保留 fallback。该增量尚未在正式 GHCR Runtime/Core/Console RC 上完成真实浏览器 Gate。
+8. **Manual Desktop / Sender GUI exclusion = source complete / live pending**：人工 Desktop 控制 WebSocket 与同账号自动 Sender 使用跨进程账号级 GUI lease；人工操作 A 时 A 的 outbox 必须 defer 且不增加 `attempt_count`，账号 B 仍可发送。该增量需要 H3 用正式镜像真实验证。
 
 因此当前总状态：
 
@@ -54,13 +56,14 @@ docs/SESSION_F_RUNTIME_SENDER_DRIVERS.md
 F Functional / Live Acceptance       PASS
 Dual-account isolation               PASS
 Dual-account concurrent sending      PASS
-Desktop                              PASS
+F-Live noVNC Desktop                PASS
 Token isolation                      PASS
 Core DB-confirmed text send          PASS
 EFB                                  PARTIAL
 Remote filename preservation         PARTIAL
 Runtime reproducible image           BLOCKED
 Current Core image reproducibility   PARTIAL
+Selkies Attach desktop               PARTIAL (source complete / live pending)
 Production Ready                     PARTIAL
 ```
 
@@ -162,6 +165,8 @@ Session 0 — Release Coordinator / Source Freeze
 目标：把当前已经通过 F-Live 的未提交工作树固化成可追踪、无 secret 的 Git baseline。
 
 **只有 Session 0 输出 `RELEASE_BASELINE_READY` 后，才开始 Wave 1。**
+
+重要：如果 GitHub push 已经开始，但 push 的 commit 早于 Post-F Selkies Attach / Desktop-Sender lease 增量，**不得**把那个较早 commit 当成最终 Release baseline。允许正常追加 commit 并再次 push，但禁止 force-push 改写历史。Session 0 必须以包含当前全部 Post-F source changes 的最终 SHA 输出 `RELEASE_BASELINE_READY`。
 
 ## Wave 1：可以同时开 5 个会话
 
@@ -511,6 +516,12 @@ clean GitHub runner
 - interactive x11vnc reconcile
 - parallel health probe / no global network probe lock
 - current F-Live Runtime fixes
+- Post-F Selkies Attach companion：只附着目标 AgentWechat child 的现有 `DISPLAY=:99`，不得启动第二个 Xvfb/WeChat。
+- account-private X11/browser-files volumes 与独立 desktop auth secret。
+- Selkies internal proxy 的 `X-WeChat-Hub-Desktop-Token` 认证与 health probe 使用一致。
+- Desktop Gateway 对 Selkies HTTP/WebSocket/binary/large-upload 的代理路径。
+- `WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME/HOST/PORT` public endpoint 配置。
+- manual Desktop GUI lease：Browser control WebSocket 与 Core Sender 通过同一 account-scoped lock file 互斥。
 
 输出：
 
@@ -554,6 +565,7 @@ work/core
 - per-account capabilities
 - health degraded semantics
 - account-scoped concurrency
+- manual Desktop / automatic Sender account-scoped GUI lease：同账号人工控制时自动 Sender defer，不调用 upstream、不增加 `attempt_count`；不同账号不互锁
 
 不得只因为 live container 里存在补丁就认为 source tree 已包含。
 
@@ -630,6 +642,8 @@ work/console
 
 - 将当前 Console/Desktop UI 从 source clean build 成正式 image。
 - 确认增强模式 Beta、Desktop Gateway client URL、submitted/uncertain 状态文案都来自 source tree。
+- 确认 Desktop API 返回 public `host/scheme/port` 时 Console 使用该 HTTPS/反代入口，而不是强制拼接当前页面 hostname。
+- 确认 `desktop_provider=selkies|novnc`、`features`、`fallback_reason` 能正确透传；fallback noVNC 时给用户清晰提示。
 - 建 GitHub CI + GHCR RC。
 
 建议 image：
@@ -720,6 +734,17 @@ release/manifest-0.1.0-rc.1.yaml
 
 Production Compose 从 manifest/env 获取 digest，不使用 `latest`。
 
+Desktop production config 同时纳入 Release Manifest / env：
+
+```text
+WECHAT_SELKIES_ATTACH_ENABLED=true
+WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME=https
+WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST=<reverse-proxy-host>
+WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT=443
+```
+
+如暂时没有 HTTPS 域名，可以先保持 LAN HTTP 做基础 Gate，但 **system Clipboard API 不能因此宣称 Production PASS**。完整 clipboard Gate 必须在浏览器 secure context（HTTPS 或浏览器等价可信上下文）下完成。
+
 ## 9.3 AgentWechat upstream
 
 固定当前经过 F-Live 验证的 upstream version 和实际 digest。
@@ -760,6 +785,9 @@ Rollback 只切 image digest，不删除：
 - `/data`
 - `/home/wechat`
 - Console DB
+- account-private browser-files volume
+
+Rollback 不得因为 Desktop provider 变化而删除登录数据、清空 browser-files，或启动第二份 WeChat。X11 socket 本身是 ephemeral，可在 primary 停止状态下重建，但对应账号的持久数据卷不得误删。
 
 禁止 rollback script 调用：
 
@@ -1029,6 +1057,7 @@ H1_MEDIA_RECONCILIATION_REPORT.md
 - x11vnc
 - agent-server
 - Desktop Gateway
+- Selkies Attach companion（打开增强 Desktop 后）
 
 统计：
 
@@ -1070,6 +1099,15 @@ WeChat Hub overhead
 ```
 
 不要把 Docker CPU 百分比误写成全机 CPU 百分比。
+
+资源报告至少比较：
+
+```text
+Desktop closed / no active Selkies control session
+Desktop active / Selkies Attach connected
+```
+
+如果 companion 在首次打开后继续常驻，必须如实记录 idle RSS/CPU；若持续开销明显，再单独提出 account-scoped idle shutdown/TTL patch，不要在 profiling 会话里顺手重构 Runtime 生命周期。
 
 ---
 
@@ -1138,6 +1176,52 @@ deploy RC manifest
 9. restart/recreate 后 volume/login 数据保持（如 WeChat 上游要求手机确认，如实记录）。
 10. token-value logs no-hit。
 
+### 14.5.1 Post-F Selkies Desktop Gate（必须执行）
+
+至少选择一个 Canary AgentWechat 账号，在正式 RC Runtime/Core/Console digest 上正常 restart/recreate（保留 `/data`、`/home/wechat`），使新的 account-private X11/files mounts 生效，然后验证：
+
+1. `desktop_provider=selkies`，不是因为旧 child 缺 mount 而自动 fallback 的 noVNC。
+2. 每账号仍只有 **一份 WeChat process + 一份 Xvfb**；Selkies companion 只做 display/input/file transport。
+3. Windows Edge/Chrome 本地中文 IME 可输入完整中文字符串。
+4. 英文键盘、鼠标正常。
+5. text clipboard PASS。
+6. image/binary clipboard PASS；如 LAN HTTP 被浏览器 secure-context 阻止，切 HTTPS 后重新验证，不能把 HTTP limitation 当实现 PASS。
+7. file upload PASS，上传文件只进入该账号 browser-files volume，并能从同账号 WeChat `/home/wechat/WeChatHubFiles/Desktop` 看到。
+8. file download PASS。
+9. dynamic resize / screen settings / DPI scaling PASS。
+10. reload/reconnect 后桌面恢复。
+11. A/B 都启用 Selkies 后，Desktop 与 browser-files 不串账号。
+12. child `6174`、Selkies internal `8081/8082` 均无 Host PortBinding；浏览器 URL/JSON/log 无 upstream agent token 或 desktop secret。
+
+### 14.5.2 Manual Desktop / Sender exclusion Gate（P0）
+
+真实打开账号 A 的 Selkies Desktop 并保持控制 WebSocket active：
+
+```text
+A Desktop active
+→ queue A text send
+→ A send remains accepted/queued/deferred
+→ upstream send endpoint NOT called
+→ attempt_count remains 0
+
+同时 queue B text send
+→ B submitted -> unique DB echo -> sent
+```
+
+关闭 A Desktop 后：
+
+```text
+A queued send
+→ automatically resumes
+→ submitted
+→ unique DB echo
+→ sent
+```
+
+反向也要验证：A Sender 已经持有 GUI lease 正在执行时，新 A Desktop control WebSocket 必须 fail-closed/busy，而不是抢焦点；B Desktop 不受影响。
+
+任意人工 Desktop + Sender race 导致 wrong-chat、重复或跨账号阻塞，均为 Release P0 FAIL。
+
 如果 H1 已经完成且准备进入同一 RC：
 
 - 再做 1 image + 1 file。
@@ -1175,6 +1259,8 @@ same tested production deployment
 ```
 
 才能把 reproducibility 从 BLOCKED/PARTIAL 提升为 PASS。
+
+Post-F Desktop 只有同时满足上面的 Selkies Live Gate 与 Manual Desktop/Sender exclusion Gate，才能从 `source complete / live pending` 提升为 `PASS`。
 
 ---
 
@@ -1222,6 +1308,8 @@ wrong-chat                           0
 duplicate                            0
 token leak                           0
 Desktop isolation                    PASS
+Selkies Attach live UX               PASS
+Manual Desktop / Sender exclusion    PASS
 Failure isolation                    PASS
 Rollback                             PASS
 Volumes/data preserved               PASS
