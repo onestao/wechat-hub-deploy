@@ -1,0 +1,609 @@
+openapi: 3.1.0
+info:
+  title: WeChat Core API
+  version: 1.0.0
+  description: Frozen account-aware contract used by EFB, Console, Agent and Mock Core.
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: Core health and contract version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /v1/accounts:
+    get:
+      operationId: listAccounts
+      responses:
+        '200':
+          description: Configured accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accounts]
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Account'
+  /v1/accounts/{account_id}/chats:
+    get:
+      operationId: listChats
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: cursor
+          in: query
+          schema: {type: string}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 200, default: 100}
+        - name: query
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: Account chats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatList'
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/runtime/accounts:
+    description: Optional operator-management extension. C/E do not depend on this surface; Console may fail soft when it is absent.
+    get:
+      operationId: listRuntimeAccounts
+      responses:
+        '200':
+          description: Live Runtime account/process status plus registry reload state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeAccountList'
+        '503': {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createRuntimeAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuntimeAccountCreate'
+      responses:
+        '201':
+          description: Runtime account created and Core registry reloaded
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/runtime/accounts/{account_id}/{action}:
+    description: Optional operator-management extension for account process lifecycle.
+    post:
+      operationId: runtimeAccountAction
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: action
+          in: path
+          required: true
+          schema: {type: string, enum: [start, stop, restart]}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200':
+          description: Runtime process lifecycle result
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/runtime/accounts/{account_id}:
+    description: Optional operator-management extension. Removal preserves Runtime login/data by default; destructive purge is explicit.
+    delete:
+      operationId: deleteRuntimeAccount
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+        - name: purge_data
+          in: query
+          description: Explicitly delete AgentWechat persistent data. Omit/false to preserve login data.
+          schema: {type: boolean, default: false}
+      responses:
+        '200':
+          description: Runtime registry entry removed and Core registry reloaded
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/runtime/accounts/{account_id}/login:
+    description: Optional Console-facing login-session status for one Runtime account.
+    get:
+      operationId: getRuntimeLoginStatus
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: Current login-session state and snapshot availability
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RuntimeLoginStatus'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/runtime/accounts/{account_id}/login/snapshot:
+    description: Ephemeral account-scoped WeChat window snapshot used for QR/login confirmation. The image is not persisted.
+    get:
+      operationId: getRuntimeLoginSnapshot
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: PNG snapshot of the selected WeChat login window
+          headers:
+            Cache-Control:
+              schema: {type: string}
+          content:
+            image/png:
+              schema: {type: string, contentEncoding: binary}
+        '404': {$ref: '#/components/responses/Error'}
+        '502': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/runtime/accounts/{account_id}/desktop:
+    description: Ephemeral account-scoped desktop descriptor. AgentWechat may include a tokenized noVNC path and must not be cached.
+    get:
+      operationId: getRuntimeDesktop
+      parameters:
+        - $ref: '#/components/parameters/AccountIdPath'
+      responses:
+        '200':
+          description: Account desktop endpoint descriptor
+          headers:
+            Cache-Control:
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RuntimeDesktop'}
+        '404': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+  /v1/events/poll:
+    get:
+      operationId: pollEvents
+      parameters:
+        - name: after
+          in: query
+          schema: {type: string, default: '0'}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+        - name: account_id
+          in: query
+          schema: {type: string}
+        - name: consumer_id
+          in: query
+          schema: {type: string}
+        - name: timeout
+          in: query
+          schema: {type: integer, minimum: 0, maximum: 30, default: 0}
+      responses:
+        '200':
+          description: Ordered at-least-once event page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollResponse'
+        '400': {$ref: '#/components/responses/Error'}
+  /v1/events/ack:
+    post:
+      operationId: acknowledgeEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AckRequest'
+      responses:
+        '200':
+          description: Acknowledgement result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AckResponse'
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/media/{media_id}:
+    get:
+      operationId: getMedia
+      parameters:
+        - name: media_id
+          in: path
+          required: true
+          schema: {type: string}
+        - name: account_id
+          in: query
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Media bytes
+          headers:
+            X-Media-Id:
+              schema: {type: string}
+          content:
+            application/octet-stream:
+              schema: {type: string, contentEncoding: binary}
+            image/*:
+              schema: {type: string, contentEncoding: binary}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/send/text:
+    post:
+      operationId: sendText
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTextRequest'
+      responses:
+        '202': {$ref: '#/components/responses/SendAccepted'}
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /v1/send/image:
+    post:
+      operationId: sendImage
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMediaRequest'
+      responses:
+        '202': {$ref: '#/components/responses/SendAccepted'}
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+  /v1/send/file:
+    post:
+      operationId: sendFile
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMediaRequest'
+      responses:
+        '202': {$ref: '#/components/responses/SendAccepted'}
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+components:
+  parameters:
+    AccountIdPath:
+      name: account_id
+      in: path
+      required: true
+      schema: {type: string}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: {type: string, maxLength: 200}
+  responses:
+    Error:
+      description: Structured API error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    SendAccepted:
+      description: Accepted into the Core outbox
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SendReceipt'
+  schemas:
+    Health:
+      type: object
+      required: [ok, service, contract_version, time]
+      properties:
+        ok: {type: boolean}
+        service: {type: string}
+        contract_version: {type: integer, const: 1}
+        time: {type: string, format: date-time}
+        accounts: {type: integer, minimum: 0}
+        sender_capabilities:
+          $ref: '#/components/schemas/SenderCapabilities'
+        registry:
+          $ref: '#/components/schemas/RegistryStatus'
+        runtime_management:
+          $ref: '#/components/schemas/RuntimeManagementStatus'
+    SenderCapabilities:
+      type: object
+      description: Optional verified capabilities of the concrete outbound sender. Absence means unknown.
+      required: [text, image, file, native_reply, media_caption, max_mentions, echo_confirmation]
+      properties:
+        text: {type: boolean}
+        image: {type: boolean}
+        file: {type: boolean}
+        native_reply: {type: boolean}
+        media_caption: {type: boolean}
+        max_mentions: {type: integer, minimum: 0, description: '0 means no advertised finite limit'}
+        echo_confirmation: {type: boolean}
+        verified_chat_target: {type: boolean}
+        driver: {type: string, enum: [legacy, agent_wechat, native]}
+    Account:
+      type: object
+      required: [account_id, display_name, state]
+      properties:
+        account_id: {type: string}
+        display_name: {type: string}
+        state: {type: string, enum: [offline, starting, login_required, online, degraded, stopped, error]}
+        runtime:
+          type: object
+          description: Runtime metadata. Implementations may expose account-scoped sender_capabilities here.
+          additionalProperties: true
+        sync: {type: object, additionalProperties: true}
+    RegistryStatus:
+      type: object
+      description: Optional Core registry watcher status. Absence is allowed for other V1 implementations.
+      properties:
+        ok: {type: boolean}
+        hot_reload: {type: boolean}
+        accounts: {type: integer, minimum: 0}
+        changed: {type: boolean}
+        error: {type: string}
+        added: {type: array, items: {type: string}}
+        removed: {type: array, items: {type: string}}
+        updated: {type: array, items: {type: string}}
+    RuntimeManagementStatus:
+      type: object
+      description: Optional discovery for the operator-only Runtime lifecycle extension.
+      properties:
+        configured: {type: boolean}
+        available: {type: boolean}
+        registry_hot_reload: {type: boolean}
+    RuntimeAccount:
+      type: object
+      required: [account_id, running]
+      properties:
+        account_id: {type: string}
+        display_name: {type: string}
+        runtime_provider: {type: string, enum: [legacy, agent_wechat], default: legacy}
+        enabled: {type: boolean}
+        autostart: {type: boolean}
+        legacy: {type: boolean}
+        username: {type: string}
+        uid: {type: [integer, 'null']}
+        home: {type: string}
+        display: {type: string}
+        running: {type: boolean}
+        container_running: {type: boolean}
+        agent_server_healthy: {type: [boolean, 'null']}
+        runtime_health: {type: string, enum: [healthy, degraded, stopped]}
+        health_error: {type: string}
+        wechat_login_status: {type: string}
+        logged_in_user: {type: string}
+        pids: {type: array, items: {type: integer}}
+        windows: {type: array, items: {type: object, additionalProperties: true}}
+        window_error: {type: [string, 'null']}
+        container_name: {type: string}
+        container_id: {type: string}
+        image: {type: string}
+        current_image: {type: string}
+        image_update_pending: {type: boolean}
+        capabilities: {type: object, additionalProperties: true}
+    RuntimeAccountList:
+      type: object
+      required: [accounts]
+      properties:
+        accounts: {type: array, items: {$ref: '#/components/schemas/RuntimeAccount'}}
+        registry_reload: {$ref: '#/components/schemas/RegistryStatus'}
+    RuntimeAccountCreate:
+      type: object
+      required: [account_id]
+      properties:
+        account_id:
+          type: string
+          pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$'
+        display_name: {type: string}
+        runtime_provider: {type: string, enum: [legacy, agent_wechat], default: agent_wechat}
+        display: {type: string, default: ':1'}
+        autostart: {type: boolean, default: true}
+        start: {type: boolean, default: true}
+    RuntimeLoginStatus:
+      type: object
+      required: [account_id, display_name, state, core_state, running, snapshot_available, window_count]
+      properties:
+        account_id: {type: string}
+        display_name: {type: string}
+        state: {type: string, enum: [online, stopped, starting, waiting, attention]}
+        core_state: {type: string}
+        running: {type: boolean}
+        container_running: {type: boolean}
+        agent_server_healthy: {type: [boolean, 'null']}
+        runtime_health: {type: string}
+        snapshot_available: {type: boolean}
+        auth_status: {type: string}
+        logged_in_user: {type: string}
+        window_title: {type: string}
+        window_count: {type: integer, minimum: 0}
+    RuntimeDesktop:
+      type: object
+      required: [account_id, runtime_provider, scheme, path]
+      properties:
+        account_id: {type: string}
+        runtime_provider: {type: string, enum: [legacy, agent_wechat]}
+        desktop_provider:
+          type: string
+          enum: ['', selkies, novnc]
+          description: AgentWechat prefers an account-scoped Selkies attach desktop and keeps noVNC as a rescue fallback.
+        scheme: {type: string, enum: ['', http, https]}
+        host:
+          type: string
+          description: Optional browser-facing Desktop Gateway host. Empty means use the current Console hostname.
+        port: {type: [integer, 'null'], minimum: 1, maximum: 65535}
+        path:
+          type: string
+          description: Opaque WeChat Hub Desktop Gateway path. Must never contain the upstream agent-wechat token.
+        gateway_session_expires_at: {type: [integer, 'null'], minimum: 0}
+        fallback_reason:
+          type: string
+          description: Non-secret reason auto mode used noVNC instead of the preferred Selkies attach desktop.
+        file_exchange_path:
+          type: string
+          description: Account-local path visible to the WeChat file picker for files uploaded through Selkies.
+        features:
+          type: object
+          additionalProperties: {type: boolean}
+          description: Browser desktop capabilities such as local IME, clipboard, file transfer, dynamic resize, and DPI scaling.
+    Chat:
+      type: object
+      required: [account_id, chat_id, type, display_name, updated_at]
+      properties:
+        account_id: {type: string}
+        chat_id: {type: string}
+        type: {type: string, enum: [private, group, system]}
+        display_name: {type: string}
+        alias: {type: string}
+        member_count: {type: integer, minimum: 0}
+        updated_at: {type: string, format: date-time}
+        vendor_specific: {type: object, additionalProperties: true}
+    ChatList:
+      type: object
+      required: [account_id, chats, next_cursor]
+      properties:
+        account_id: {type: string}
+        chats:
+          type: array
+          items: {$ref: '#/components/schemas/Chat'}
+        next_cursor: {type: string}
+    Author:
+      type: object
+      required: [member_id, display_name, is_self]
+      properties:
+        member_id: {type: string}
+        display_name: {type: string}
+        alias: {type: string}
+        is_self: {type: boolean}
+    NormalizedMessage:
+      type: object
+      required: [account_id, message_id, chat_id, type, direction, created_at, author]
+      properties:
+        account_id: {type: string}
+        message_id: {type: string}
+        chat_id: {type: string}
+        type:
+          type: string
+          enum: [text, image, sticker, voice, video, file, link, location, contact_card, system, recall, unsupported]
+        direction: {type: string, enum: [incoming, outgoing]}
+        created_at: {type: string, format: date-time}
+        author: {$ref: '#/components/schemas/Author'}
+        text: {type: string}
+        media_id: {type: string}
+        filename: {type: string}
+        mime_type: {type: string}
+        target_message_id: {type: string}
+        substitutions: {type: array, items: {type: object, additionalProperties: true}}
+        attributes: {type: object, additionalProperties: true}
+        vendor_specific: {type: object, additionalProperties: true}
+    Event:
+      type: object
+      required: [event_id, cursor, account_id, event_type, occurred_at, payload]
+      properties:
+        event_id: {type: string}
+        cursor: {type: string}
+        account_id: {type: string}
+        event_type:
+          type: string
+          description: Consumers must tolerate unknown future values.
+        occurred_at: {type: string, format: date-time}
+        payload: {type: object, additionalProperties: true}
+    PollResponse:
+      type: object
+      required: [events, next_cursor, has_more]
+      properties:
+        events: {type: array, items: {$ref: '#/components/schemas/Event'}}
+        next_cursor: {type: string}
+        has_more: {type: boolean}
+    AckRequest:
+      type: object
+      required: [consumer_id, event_ids]
+      properties:
+        consumer_id: {type: string, minLength: 1}
+        event_ids: {type: array, minItems: 1, items: {type: string, minLength: 1}}
+    AckResponse:
+      type: object
+      required: [consumer_id, acked_event_ids, acked_count]
+      properties:
+        consumer_id: {type: string}
+        acked_event_ids: {type: array, items: {type: string}}
+        acked_count: {type: integer, minimum: 0}
+    SendBase:
+      type: object
+      required: [account_id, chat_id]
+      properties:
+        account_id: {type: string, minLength: 1}
+        chat_id: {type: string, minLength: 1}
+        target_message_id: {type: string}
+        client_request_id: {type: string}
+    SendTextRequest:
+      allOf:
+        - $ref: '#/components/schemas/SendBase'
+        - type: object
+          required: [text]
+          properties:
+            text: {type: string, minLength: 1}
+            mention_member_ids: {type: array, items: {type: string}}
+    SendMediaRequest:
+      allOf:
+        - $ref: '#/components/schemas/SendBase'
+        - type: object
+          properties:
+            media_id: {type: string}
+            content_base64: {type: string, contentEncoding: base64}
+            filename: {type: string}
+            mime_type: {type: string}
+            caption: {type: string}
+          oneOf:
+            - required: [media_id]
+            - required: [content_base64]
+    SendReceipt:
+      type: object
+      required: [send_id, status, kind, account_id, chat_id, accepted_at]
+      properties:
+        send_id: {type: string}
+        status: {type: string, enum: [accepted, queued, sending, submitted, sent, failed, uncertain, rejected]}
+        kind: {type: string, enum: [text, image, file]}
+        account_id: {type: string}
+        chat_id: {type: string}
+        accepted_at: {type: string, format: date-time}
+        client_request_id: {type: string}
+        echo_message_id: {type: string}
+        delivery_certainty:
+          type: string
+          enum: [pending_confirmation, confirmed, unknown]
+        automatic_retry: {type: boolean}
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code: {type: string}
+            message: {type: string}
+            details: {type: object, additionalProperties: true}

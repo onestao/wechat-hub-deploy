@@ -1,0 +1,215 @@
+name: wechat-hub
+
+services:
+  mock-core:
+    profiles: ["mock"]
+    build:
+      context: ./mock-core
+    ports:
+      - "${MOCK_CORE_BIND:-127.0.0.1}:${MOCK_CORE_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  wechat-runtime:
+    # Runtime + Core are the minimum production pair.  They intentionally
+    # participate in every optional component profile so `--profile console`,
+    # `--profile agent`, or `--profile efb` also brings up the required core
+    # pair without forcing unrelated optional services to run.
+    profiles: ["implementation", "core", "console", "agent", "efb"]
+    build:
+      context: ../work/runtime
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-100}
+      - CUSTOM_USER=${CUSTOM_USER:-}
+      - PASSWORD=${PASSWORD:-}
+      - AUTO_START_WECHAT=${AUTO_START_WECHAT:-true}
+      - ENABLE_WECHAT_NIGHTLY_RESTART=${ENABLE_WECHAT_NIGHTLY_RESTART:-false}
+      - WECHAT_NIGHTLY_STOP_TIME=${WECHAT_NIGHTLY_STOP_TIME:-23:30}
+      - WECHAT_NIGHTLY_START_TIME=${WECHAT_NIGHTLY_START_TIME:-01:30}
+      - ENABLE_WECHAT_AUTO_LOGIN=${ENABLE_WECHAT_AUTO_LOGIN:-true}
+      - AUTO_LOGIN_DELAY=${AUTO_LOGIN_DELAY:-3}
+      # Empty account list preserves Package A's upstream-compatible legacy
+      # `default` account.  Operators opt in to two accounts explicitly.
+      - WECHAT_ACCOUNTS=${WECHAT_ACCOUNTS:-}
+      - WECHAT_DEFAULT_ACCOUNT_ID=${WECHAT_DEFAULT_ACCOUNT_ID:-default}
+      - WECHAT_ACCOUNT_UID_BASE=${WECHAT_ACCOUNT_UID_BASE:-20000}
+      - WECHAT_ACCOUNTS_FILE=/config/wechat-runtime/accounts.json
+      - WECHAT_ACCOUNT_HOME_ROOT=/config/wechat-accounts
+      - WECHAT_RUNTIME_CONTROL_SOCKET=/run/wechat-runtime/control.sock
+      - WECHAT_GUI_LEASE_DIR=/run/wechat-runtime/locks
+      - WECHAT_ACCOUNT_DISPLAY_MAP=${WECHAT_ACCOUNT_DISPLAY_MAP:-}
+      - WECHAT_LEGACY_DEFAULT_ACCOUNT=${WECHAT_LEGACY_DEFAULT_ACCOUNT:-true}
+      - AGENT_WECHAT_IMAGE=${AGENT_WECHAT_IMAGE:-ghcr.io/thisnick/agent-wechat:0.11.15}
+      - AGENT_WECHAT_SHM_MB=${AGENT_WECHAT_SHM_MB:-512}
+      - AGENT_WECHAT_PULL_TIMEOUT=${AGENT_WECHAT_PULL_TIMEOUT:-900}
+      - AGENT_WECHAT_LOGIN_TIMEOUT_MS=${AGENT_WECHAT_LOGIN_TIMEOUT_MS:-300000}
+      - WECHAT_DESKTOP_GATEWAY_BIND=0.0.0.0
+      - WECHAT_DESKTOP_GATEWAY_PORT=${WECHAT_DESKTOP_GATEWAY_PORT:-17892}
+      - WECHAT_DESKTOP_GATEWAY_SESSION_TTL=${WECHAT_DESKTOP_GATEWAY_SESSION_TTL:-14400}
+      - WECHAT_DESKTOP_GATEWAY_MAX_WS_FRAME_MB=${WECHAT_DESKTOP_GATEWAY_MAX_WS_FRAME_MB:-64}
+      - WECHAT_DESKTOP_GATEWAY_MAX_HTTP_MB=${WECHAT_DESKTOP_GATEWAY_MAX_HTTP_MB:-1024}
+      # Optional browser-facing override when a TLS reverse proxy fronts the
+      # Desktop Gateway. HTTPS is required by browsers for full clipboard API
+      # support on non-localhost hosts.
+      - WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME=${WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME:-http}
+      - WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST=${WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST:-}
+      - WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT=${WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT:-}
+      # Rich AgentWechat desktop: one on-demand Selkies process attaches to the
+      # account's existing Xvfb. It never starts another WeChat/X server and
+      # has no Host-published port. noVNC remains the automatic fallback.
+      - WECHAT_SELKIES_ATTACH_ENABLED=${WECHAT_SELKIES_ATTACH_ENABLED:-true}
+      - WECHAT_SELKIES_ATTACH_IMAGE=${WECHAT_SELKIES_ATTACH_IMAGE:-}
+    volumes:
+      - runtime-config:/config
+      - runtime-state:/run/wechat-runtime
+      - runtime-x11:/tmp/.X11-unix
+      # Runtime Manager is the only WeChat Hub service allowed to control
+      # Docker. Core/Console/EFB/Agent deliberately do not receive docker.sock.
+      - /var/run/docker.sock:/var/run/docker.sock
+    devices:
+      - /dev/dri:/dev/dri
+    ports:
+      - "${RUNTIME_HTTP_PORT:-3000}:3000"
+      - "${RUNTIME_HTTPS_PORT:-3001}:3001"
+      # Browser entry for AgentWechat desktops. Child port 6174 is never
+      # published; Runtime's gateway injects auth on the internal network.
+      - "${WECHAT_DESKTOP_GATEWAY_HOST_BIND:-0.0.0.0}:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}"
+    shm_size: "${SHM_SIZE:-1gb}"
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /run/wechat-runtime/bootstrap.ready && test -S /run/wechat-runtime/control.sock && curl -fsS http://127.0.0.1:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}/healthz >/dev/null"]
+      interval: 2s
+      timeout: 1s
+      retries: 60
+      start_period: 5s
+
+  wechat-core:
+    profiles: ["implementation", "core", "console", "agent", "efb"]
+    build:
+      context: ../work/core
+    depends_on:
+      wechat-runtime:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      - WECHAT_RUNTIME_CONTROL_SOCKET=/run/wechat-runtime/control.sock
+      - WECHAT_GUI_LEASE_DIR=/run/wechat-runtime/locks
+      - CORE_REGISTRY_RELOAD_INTERVAL=${CORE_REGISTRY_RELOAD_INTERVAL:-1}
+      - WECHAT_NATIVE_DRIVER_SOCKET=${WECHAT_NATIVE_DRIVER_SOCKET:-}
+    pid: "service:wechat-runtime"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - runtime-config:/app/config:ro
+      - core-data:/app/runtime
+      - runtime-state:/run/wechat-runtime
+      - runtime-x11:/tmp/.X11-unix
+    ports:
+      - "${CORE_BIND:-127.0.0.1}:${CORE_PORT:-8080}:8080"
+    command:
+      - python
+      - -m
+      - core.app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --registry
+      - /app/config/wechat-runtime/accounts.json
+      - --require-registry
+      - --database
+      - /app/runtime/core/wechat_core.sqlite
+      - --sync-interval
+      - "${CORE_SYNC_INTERVAL:-5}"
+      - --send-interval
+      - "${CORE_SEND_INTERVAL:-1}"
+      - --registry-reload-interval
+      - "${CORE_REGISTRY_RELOAD_INTERVAL:-1}"
+      - --runtime-control-socket
+      - /run/wechat-runtime/control.sock
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 3s
+
+  efb-multi:
+    profiles: ["efb"]
+    build:
+      context: ../work/efb-linux-wechat-slave
+    depends_on:
+      wechat-core:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - "${EFB_PROFILE_DIR:-./efb-profile}:/root/.ehforwarderbot"
+
+  wechat-console:
+    profiles: ["console"]
+    build:
+      context: ../work/console
+    depends_on:
+      wechat-core:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      - WECHAT_CORE_URL=http://wechat-core:8080
+      - WECHAT_DESKTOP_URL=${WECHAT_DESKTOP_URL:-}
+      - WECHAT_AGENT_URL=${WECHAT_AGENT_URL:-}
+      - EFB_MULTI_URL=${EFB_MULTI_URL:-}
+    ports:
+      - "${WECHAT_CONSOLE_BIND:-127.0.0.1}:${WECHAT_CONSOLE_PORT:-8078}:8078"
+    volumes:
+      - console-data:/data/wechat-console
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8078/api/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  wechat-agent:
+    profiles: ["agent"]
+    build:
+      context: ../work/agent
+    depends_on:
+      wechat-core:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      - WECHAT_CORE_URL=http://wechat-core:8080
+      - WECHAT_AGENT_DB=/data/wechat-agent.sqlite
+      - WECHAT_AGENT_CONSUMER_ID=${WECHAT_AGENT_CONSUMER_ID:-wechat-agent}
+      - WECHAT_AGENT_LEGACY_RUNTIME_DIR=/data/legacy-agent-console
+      - WECHAT_AGENT_LLM_BASE_URL=${WECHAT_AGENT_LLM_BASE_URL:-}
+      - WECHAT_AGENT_LLM_MODEL=${WECHAT_AGENT_LLM_MODEL:-}
+      - WECHAT_AGENT_LLM_API_KEY=${WECHAT_AGENT_LLM_API_KEY:-}
+      - WECHAT_AGENT_LLM_TEMPERATURE=${WECHAT_AGENT_LLM_TEMPERATURE:-}
+      - WECHAT_AGENT_LLM_MAX_TOKENS=${WECHAT_AGENT_LLM_MAX_TOKENS:-}
+      - WECHAT_AGENT_LLM_TIMEOUT_SECONDS=${WECHAT_AGENT_LLM_TIMEOUT_SECONDS:-}
+    ports:
+      - "${WECHAT_AGENT_BIND:-127.0.0.1}:${WECHAT_AGENT_PORT:-8091}:8091"
+    volumes:
+      - agent-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  runtime-config:
+  runtime-state:
+  runtime-x11:
+  core-data:
+  console-data:
+  agent-data:
