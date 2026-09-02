@@ -1,0 +1,59 @@
+release: 0.1.0-rc.1
+platform: linux/amd64
+created: '2026-09-03T00:00:00Z'
+
+images:
+  runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:PLACEHOLDER_G1_RUNTIME
+  core: ghcr.io/onestao/wechat-hub-core@sha256:PLACEHOLDER_G2_CORE
+  console: ghcr.io/onestao/wechat-hub-console@sha256:PLACEHOLDER_G3_CONSOLE
+  agent: ghcr.io/onestao/wechat-hub-agent@sha256:PLACEHOLDER_G5_AGENT
+  efb: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:PLACEHOLDER_G5_EFB
+
+upstream:
+  agent_wechat:
+    image: ghcr.io/thisnick/agent-wechat:0.11.15
+    digest: PLACEHOLDER_UPSTREAM_AGENT_WECHAT_DIGEST
+    policy: pinned
+    watchtower: false
+
+desktop:
+  selkies_attach_enabled: true
+  gateway_public_scheme: http
+  gateway_public_host: ''
+  gateway_public_port: ''
+  gateway_port: 17892
+  session_ttl_seconds: 14400
+  max_ws_frame_mb: 64
+  max_http_mb: 1024
+  # Clipboard full Gate requires browser secure context (HTTPS). LAN HTTP
+  # is acceptable only for basic desktop smoke, never for Production PASS.
+  clipboard_gate: REQUIRES_HTTPS
+
+ports:
+  runtime_http: 3000
+  runtime_https: 3001
+  core: 8080
+  console: 8078
+  agent: 8091
+
+volumes:
+  runtime_config: true
+  runtime_state: true
+  runtime_x11: true
+  core_data: true
+  console_data: true
+  agent_data: true
+  account_private_browser_files: true
+
+rollback:
+  mechanism: manifest_digest_swap
+  preserve:
+    - account_volumes
+    - core_db
+    - data
+    - home_wechat
+    - console_db
+    - account_private_browser_files
+  forbidden:
+    - docker system prune
+    - docker volume prune

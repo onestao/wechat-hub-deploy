@@ -1,0 +1,29 @@
+# Production overlay: consumes pinned digests from the release manifest.
+# Apply on top of the base stack compose:
+#   docker compose -f stack/docker-compose.yml -f release/docker-compose.production.yml up -d
+
+services:
+  wechat-runtime:
+    image: ghcr.io/onestao/wechat-hub-runtime@sha256:PLACEHOLDER_G1_RUNTIME
+    build: !reset null
+    environment:
+      - WECHAT_SELKIES_ATTACH_ENABLED=true
+      - WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME=${WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME:-http}
+      - WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST=${WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST:-}
+      - WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT=${WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT:-}
+
+  wechat-core:
+    image: ghcr.io/onestao/wechat-hub-core@sha256:PLACEHOLDER_G2_CORE
+    build: !reset null
+
+  wechat-console:
+    image: ghcr.io/onestao/wechat-hub-console@sha256:PLACEHOLDER_G3_CONSOLE
+    build: !reset null
+
+  wechat-agent:
+    image: ghcr.io/onestao/wechat-hub-agent@sha256:PLACEHOLDER_G5_AGENT
+    build: !reset null
+
+  efb-multi:
+    image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:PLACEHOLDER_G5_EFB
+    build: !reset null
