@@ -6,8 +6,13 @@ services:
   wechat-runtime:
     image: ghcr.io/onestao/wechat-hub-runtime@sha256:a937410908e6fe1df0b06df9b9e3ef51a532fc0d56405fc3d0e0817b9a09244c
     build: !reset null
+    pids_limit: 200
     environment:
       - WECHAT_SELKIES_ATTACH_ENABLED=true
+      - WECHAT_SELKIES_CLIPBOARD_ENABLED=false
+      - WECHAT_SELKIES_PIDS_LIMIT=100
+      - AGENT_WECHAT_PIDS_LIMIT=256
+      - WECHAT_SELKIES_IDLE_TTL_SECONDS=10
       - WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME=${WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME:-http}
       - WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST=${WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST:-}
       - WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT=${WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT:-}
@@ -15,14 +20,17 @@ services:
   wechat-core:
     image: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
     build: !reset null
+    pids_limit: 100
 
   wechat-console:
     image: ghcr.io/onestao/wechat-hub-console@sha256:d27870c69cf964d06e09b840f984a3a8031b4863d29157aff50420f3123094a1
     build: !reset null
+    pids_limit: 100
 
   wechat-agent:
     image: ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74
     build: !reset null
+    pids_limit: 100
 
   efb-multi:
     image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15

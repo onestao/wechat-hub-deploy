@@ -65,6 +65,11 @@ services:
       # has no Host-published port. noVNC remains the automatic fallback.
       - WECHAT_SELKIES_ATTACH_ENABLED=${WECHAT_SELKIES_ATTACH_ENABLED:-true}
       - WECHAT_SELKIES_ATTACH_IMAGE=${WECHAT_SELKIES_ATTACH_IMAGE:-}
+      # P0 Safety: Clipboard disabled by default to prevent xclip subprocess leaks.
+      - WECHAT_SELKIES_CLIPBOARD_ENABLED=${WECHAT_SELKIES_CLIPBOARD_ENABLED:-false}
+      - WECHAT_SELKIES_PIDS_LIMIT=${WECHAT_SELKIES_PIDS_LIMIT:-100}
+      - AGENT_WECHAT_PIDS_LIMIT=${AGENT_WECHAT_PIDS_LIMIT:-256}
+      - WECHAT_SELKIES_IDLE_TTL_SECONDS=${WECHAT_SELKIES_IDLE_TTL_SECONDS:-10}
     volumes:
       - runtime-config:/config
       - runtime-state:/run/wechat-runtime
@@ -81,6 +86,7 @@ services:
       # published; Runtime's gateway injects auth on the internal network.
       - "${WECHAT_DESKTOP_GATEWAY_HOST_BIND:-0.0.0.0}:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}"
     shm_size: "${SHM_SIZE:-1gb}"
+    pids_limit: 200
     healthcheck:
       test: ["CMD-SHELL", "test -s /run/wechat-runtime/bootstrap.ready && test -S /run/wechat-runtime/control.sock && curl -fsS http://127.0.0.1:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}/healthz >/dev/null"]
       interval: 2s
@@ -134,6 +140,7 @@ services:
       - "${CORE_REGISTRY_RELOAD_INTERVAL:-1}"
       - --runtime-control-socket
       - /run/wechat-runtime/control.sock
+    pids_limit: 100
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2).read()"]
       interval: 5s
@@ -169,6 +176,7 @@ services:
       - "${WECHAT_CONSOLE_BIND:-127.0.0.1}:${WECHAT_CONSOLE_PORT:-8078}:8078"
     volumes:
       - console-data:/data/wechat-console
+    pids_limit: 100
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8078/api/health', timeout=2).read()"]
       interval: 10s
@@ -199,6 +207,7 @@ services:
       - "${WECHAT_AGENT_BIND:-127.0.0.1}:${WECHAT_AGENT_PORT:-8091}:8091"
     volumes:
       - agent-data:/data
+    pids_limit: 100
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=2).read()"]
       interval: 10s
