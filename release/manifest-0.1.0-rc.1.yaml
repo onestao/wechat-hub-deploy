@@ -3,11 +3,11 @@ platform: linux/amd64
 created: '2026-09-03T00:00:00Z'
 
 images:
-  runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:PLACEHOLDER_G1_RUNTIME
-  core: ghcr.io/onestao/wechat-hub-core@sha256:PLACEHOLDER_G2_CORE
+  runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:a937410908e6fe1df0b06df9b9e3ef51a532fc0d56405fc3d0e0817b9a09244c
+  core: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
   console: ghcr.io/onestao/wechat-hub-console@sha256:PLACEHOLDER_G3_CONSOLE
-  agent: ghcr.io/onestao/wechat-hub-agent@sha256:PLACEHOLDER_G5_AGENT
-  efb: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:PLACEHOLDER_G5_EFB
+  agent: ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74
+  efb: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15
 
 upstream:
   agent_wechat:
