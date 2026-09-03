@@ -5,14 +5,15 @@ created: '2026-09-03T00:00:00Z'
 images:
   runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:a937410908e6fe1df0b06df9b9e3ef51a532fc0d56405fc3d0e0817b9a09244c
   core: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
-  console: ghcr.io/onestao/wechat-hub-console@sha256:PLACEHOLDER_G3_CONSOLE
+  console: ghcr.io/onestao/wechat-hub-console@sha256:d27870c69cf964d06e09b840f984a3a8031b4863d29157aff50420f3123094a1
   agent: ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74
   efb: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15
 
 upstream:
   agent_wechat:
     image: ghcr.io/thisnick/agent-wechat:0.11.15
-    digest: PLACEHOLDER_UPSTREAM_AGENT_WECHAT_DIGEST
+    digest: sha256:31a4e351c191bcbfc75e5c10be51e207d22a3eedd97f3ff56ad579fcce717b24
+    amd64_digest: sha256:b5e92047e28ce67e34576e574d8ccf00f8619f485597109f7342a137300285c0
     policy: pinned
     watchtower: false
 

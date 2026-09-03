@@ -17,7 +17,7 @@ services:
     build: !reset null
 
   wechat-console:
-    image: ghcr.io/onestao/wechat-hub-console@sha256:PLACEHOLDER_G3_CONSOLE
+    image: ghcr.io/onestao/wechat-hub-console@sha256:d27870c69cf964d06e09b840f984a3a8031b4863d29157aff50420f3123094a1
     build: !reset null
 
   wechat-agent:
