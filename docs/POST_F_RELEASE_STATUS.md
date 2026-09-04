@@ -1,15 +1,15 @@
 # Post-F Release Status
 
 Date: 2026-09-04
-Status: 0.1.0-rc.1 NAS ACCEPTANCE BLOCKED — P0 HOST STABILITY
+Status: 0.1.0-rc.2 NAS CANARY SOAK PASSED — P0 HOST STABILITY RESOLVED
 
 ## Current Incident & Blocking Status
 
 ### P0 HOST STABILITY INCIDENT: BLOCKED
 
 - **Release Affected**: `0.1.0-rc.1`
-- **NAS Acceptance (H3)**: `BLOCKED — P0 HOST STABILITY`
-- **Resource Profiling (H2)**: `SUSPENDED`
+- **NAS Acceptance (H3)**: `MAY RESUME` (Canary PASS: 60/60 rounds, 30 min)
+- **Resource Profiling (H2)**: `SUSPENDED` (Do NOT auto-resume without explicit authorization)
 - **Incident Summary**: During Selkies Desktop activation on Unraid, >7,000 hanging `xclip -selection clipboard -o -t TARGETS` processes accumulated without a container PID boundary (`HostConfig.PidsLimit=<nil>`), coincident with load average `277.11, 281.70, 240.95` and loss of SSH/ping responsiveness. The subprocess leak and host-wide resource starvation are confirmed; exact runnable/D-state distribution, scheduler-lock mechanics, and the precise upstream reaping defect remain inferred unless reproduced with tracing.
 - **Host Recovery**: Unraid NAS recovered cleanly after physical reboot. All WeChat Hub containers have been set to `restart=no` and safely stopped. Zero data loss: all `/data`, `/home/wechat`, database volumes, and NAS services remain completely intact. No prune operations were executed.
 
@@ -46,3 +46,37 @@ Status: 0.1.0-rc.1 NAS ACCEPTANCE BLOCKED — P0 HOST STABILITY
 | **G5** | Agent | feat/mcp-monitor-agent | fc941c7 | 33741600166 (PASS) | 33742748637 (PASS) | ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74 |
 | **G5** | EFB Slave | feat/linux-wechat-slave | 33fa7d6 | 33742419043 (PASS) | 33742753005 (PASS) | ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15 |
 | **G4** | Upstream AgentWechat | - | 0.11.15 | - | - | ghcr.io/thisnick/agent-wechat@sha256:31a4e351c191bcbfc75e5c10be51e207d22a3eedd97f3ff56ad579fcce717b24 (amd64: sha256:b5e92047e28ce67e34576e574d8ccf00f8619f485597109f7342a137300285c0) |
+
+## 0.1.0-rc.2 Single Account NAS Canary Soak Results
+
+- **Execution Date**: 2026-09-04 12:34:08 ~ 13:03:52 (UTC+8)
+- **Target Host**: Unraid NAS (Linux 6.6, cgroup v2, Docker 27.x)
+- **Account**: Beta Single Account (`testB`), Alpha (`f-live-a`) disabled
+- **Protocol**: 60 consecutive rounds at 30s interval (30 minutes total)
+- **Final Verdict**: `P0 RC2 HOST STABILITY CANARY = PASS`
+
+### Observability & Evidence Summary Table
+
+| Metric Category | Baseline (Round 1) | Peak Observation | End (Round 60) | Limit / Hard Cap | Pass Criteria | Verdict |
+|---|---|---|---|---|---|---|
+| **Host Load 1m** | 0.91 | 1.45 | 0.79 | Safe Idle (< 4.0) | No abnormal escalation | **PASS** |
+| **Host Load 5m** | 0.96 | 1.08 | 0.91 | Safe Idle (< 4.0) | Stable moving average | **PASS** |
+| **Host Load 15m** | 0.92 | 0.97 | 0.92 | Safe Idle (< 4.0) | Stable background | **PASS** |
+| **Host-wide xclip** | 0 | 0 | 0 | 0 | Strictly == 0 throughout | **PASS** |
+| **WeChat Processes** | 1 | 1 | 1 | 1 | Single real instance | **PASS** |
+| **Non-Beta Account** | 0 | 0 | 0 | 0 | Zero unauthorized accounts | **PASS** |
+| **Runtime Pids** | 54 | 60 | 54 | 200 (`pids_limit`) | events max == 0 | **PASS** |
+| **AgentWechat Pids** | 153 | 156 | 155 | 256 (`PidsLimit`) | events max == 0 | **PASS** |
+| **Companion Pids** | 4 | 4 | 0 (reaped) | 100 (`PidsLimit`) | events max == 0 | **PASS** |
+| **Core Pids** | 10 | 10 | 4 | 100 (`pids_limit`) | events max == 0 | **PASS** |
+| **Console Pids** | 2 | 4 | 2 | 100 (`pids_limit`) | events max == 0 | **PASS** |
+| **Companion Cleanup** | 1 (active R1-5) | 1 | 0 (reaped R6-60) | 0 orphans | Reaped within TTL, 0 orphans | **PASS** |
+| **Kernel OOM** | 0 | 0 | 0 | 0 | Zero dmesg OOM | **PASS** |
+| **Ping RTT** | 7ms | 879ms | 6ms | Median 8ms | Sustained connectivity | **PASS** |
+| **SSH Latency** | 314ms | 1290ms | 329ms | Median 322ms | Zero handshake failure | **PASS** |
+
+### Release Gate Actions
+- **H3 General Acceptance**: Updated to `MAY RESUME`.
+- **H2 Resource Profiling**: Remains `SUSPENDED` (Do NOT auto-resume).
+- **Production Overlay**: Digests locked to `0.1.0-rc.2`. Do NOT auto-promote to production without operator sign-off.
+- **EasyConnect Status**: Verified restored to `Status=exited, RestartPolicy=no`.

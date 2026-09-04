@@ -71,3 +71,24 @@ rollback:
   forbidden:
     - docker system prune
     - docker volume prune
+
+canary:
+  target: unraid_nas_beta_single_account
+  date: '2026-09-04T12:34:08+08:00'
+  duration_minutes: 30
+  samples: 60
+  verdict: PASS
+  evidence:
+    xclip_count_max: 0
+    wechat_count: 1
+    alpha_running: 0
+    host_load_1m_baseline: 0.91
+    host_load_1m_peak: 1.45
+    host_load_1m_end: 0.79
+    cgroup_runtime_pids: 54/200 (events_max: 0)
+    cgroup_agent_pids: 153-156/256 (events_max: 0)
+    cgroup_companion_pids: 4/100 (events_max: 0)
+    orphan_companion_count: 0
+    dmesg_oom_count: 0
+  h3_status: MAY RESUME
+  h2_status: SUSPENDED

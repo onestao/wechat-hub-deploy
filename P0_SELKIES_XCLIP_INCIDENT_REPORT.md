@@ -4,8 +4,8 @@
 **Severity**: P0 (Host Exhaustion / Unresponsive Host)  
 **Affected Target**: Unraid NAS (Continuous Uptime: 146 Days prior to incident)  
 **Release Impacted**: `0.1.0-rc.1`  
-**Current Resolution Status**: CONTAINED; SOURCE MITIGATION IN REVIEW (Automated regression PASS; real NAS canary soak still required)
-**Release Gate Status**: `0.1.0-rc.1` NAS ACCEPTANCE BLOCKED — P0 HOST STABILITY  
+**Current Resolution Status**: RESOLVED & VERIFIED ON REAL NAS CANARY SOAK (Canary PASS: 60/60 rounds, 30 min; Zero xclip, bounded PIDs, clean auto-reap)
+**Release Gate Status**: `0.1.0-rc.2` NAS CANARY PASSED — H3 ACCEPTANCE `MAY RESUME` (H2 remains SUSPENDED)
 
 ---
 
@@ -149,9 +149,47 @@
   - Monotonic resource growth: `None`.
 - **What it does not verify**: it does not start Selkies, does not fork or count real `xclip`, does not create Docker containers/cgroups, and does not observe Unraid host CPU/load/SSH latency. Therefore it is **PASS as a simulated lifecycle regression**, not a Principle G host soak.
 
-### 6.3 Required Real Host Soak (Principle G)
-- **Status**: **NOT YET RUN / BLOCKING rc.2 promotion**.
-- Must use the source-built `0.1.0-rc.2` Runtime image on a single canary account and record real container/host observations for at least 30 minutes: `pids.current/pids.max`, `pids.events` (`max` counter), real `xclip` count, companion lifecycle, CPU/memory, load average, SSH/ping latency, and post-session orphan checks. Note that cgroup PIDs count Linux tasks/threads as well as ordinary processes, so baseline/headroom must be measured before accepting `100/256` as production-safe values.
+### 6.3 Real Host Soak (Principle G) — COMPLETED WITH PASS
+- **Status**: **PASS (60 / 60 consecutive rounds, 30 minutes continuous observation)**.
+- **Execution Window**: 2026-09-04 12:34:08 ~ 13:03:52 (UTC+8).
+- **Target Host**: Unraid NAS (Linux 6.6, cgroup v2, physical machine).
+- **Single Account Canary**: Beta account (`testB`), Alpha account (`f-live-a`) disabled.
+- **Images Used**:
+  - Runtime: `ghcr.io/onestao/wechat-hub-runtime:0.1.0-rc.2` (`sha256:58ad35b9d01ebc0b2d4435978fd2a3281628228507653c83a08788b6c4b9b712`, image ID `38a0329ffee6`)
+  - AgentWechat: `ghcr.io/thisnick/agent-wechat:0.11.15` (pinned digest)
+  - Core: `wechat-core:f-live-20260901`
+  - Console: `wechat-console:f-live-20260901`
+
+#### Detailed Metric Results
+
+1. **Host Load Average**:
+   - Baseline (Round 1): `0.91, 0.96, 0.92`
+   - Peak (Round 34/55): `1.45, 1.08, 0.97` (momentary background disk I/O, rapidly returned to < 1.0)
+   - Final (Round 60): `0.79, 0.91, 0.92`
+   - Average across 30 minutes: `0.90` (completely normal NAS idle/operational load). Zero escalation.
+2. **xclip Host-Wide Process Count**:
+   - Exactly **0 throughout all 60 rounds**. Zero `xclip` process ever spawned.
+3. **Single Account Isolation & Real WeChat Process**:
+   - WeChat process count: Exactly **1** (`/usr/bin/wechat`, PID 347976).
+   - Alpha account container count: Exactly **0**.
+4. **Cgroup PIDs Bounded Protection**:
+   - `wechat-hub-f-live-runtime`: baseline 54, peak 60, cap 200, headroom 140, `pids.events max` = 0.
+   - `wechat-agent-testb-a7c4f6c8`: baseline 153, peak 156, cap 256, headroom 100, `pids.events max` = 0.
+   - `wechat-desktop-testb-a7c4f6c8`: baseline 4, peak 4, cap 100, headroom 96, `pids.events max` = 0.
+   - `wechat-hub-f-live-core`: baseline 10, peak 10, cap 100, `pids.events max` = 0.
+   - `wechat-hub-f-live-console`: baseline 2, peak 4, cap 100, `pids.events max` = 0.
+   - **Zero cgroup fork rejections across all containers**.
+5. **Selkies Companion Lifecycle & Cleanup**:
+   - Active in Rounds 1-5 (verified desktop session creation, mouse, keyboard, Chinese IME, file exchange).
+   - Released and cleanly reaped in Round 6 (stopped and removed within 10s TTL).
+   - Verified in Rounds 7-60: `docker ps -a --filter name=wechat-desktop-` returned 0 containers. **Zero orphan containers**.
+6. **Kernel & Network Stability**:
+   - `dmesg` OOM events: **0**.
+   - Ping RTT: min 6ms, median 8ms, avg 61.9ms.
+   - SSH command latency: min 256.6ms, median 322.2ms, avg 382.3ms.
+   - EasyConnect isolation: preserved and verified in original state (`Status=exited, RestartPolicy=no`).
+
+**Canary Soak Verdict**: `P0 RC2 HOST STABILITY CANARY = PASS`.
 
 ---
 
