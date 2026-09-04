@@ -465,22 +465,29 @@ H3 Canary、RC deploy、rollback 期间：
    - WeChat Runtime 容器：默认 `pids_limit: 200`。
    - Core / Console / Agent / EFB 容器：默认 `pids_limit: 100`。
    - 严禁允许单 container 无限制 fork 进程拖垮 Host 内核调度队列。
+   - `pids.current` 统计的是 Linux tasks（包含线程），不是简单的 `ps` 进程数；设置/调整上限前必须采集正常基线与峰值余量，并在 Canary 中同时检查 `pids.events` 的 `max` 计数是否增长。
+   - 安全相关环境变量不得允许 `0`、`-1`、`max` 或超大数值绕过上限；override 必须在源码中做正值校验与安全范围 clamp。
 
 2. **资源隔离与 Fail-Closed**
-   - 单 companion 或容器内进程耗尽 PID 或 OOM 时，必须仅由其自身 cgroup fail-closed（收到 `-EAGAIN` 或终止该 companion），严禁突破 cgroup 影响 Host 或其他账号容器。
+   - 单 companion 或容器内进程耗尽 PID 或 OOM 时，必须优先在其自身 cgroup 内 fail-closed（收到 `-EAGAIN` 或终止该 companion），避免无界扩散到 Host 或其他账号容器。
+   - `PidsLimit` 只限制 task 数量，不代表 CPU / Memory / I/O 对 Host 的影响自动归零；dynamic companion 必须同时配置合理 CPU/Memory hard cap，Host Stability Gate 必须采集宿主机 load、延迟与资源指标。
    - 任何账号 A 的 companion failure 不得影响账号 B 的正常运行与 Desktop 访问。
    - 严禁使用 `oom_kill_disable` 等方式阻止宿主机保护自身。
+   - 采用第三方/base image 时，必须审查**镜像自身默认启动的服务和默认环境变量**；只保护自建 sidecar/wrapper 不算完成隔离。继承的 Selkies、VNC、clipboard、audio 等后台服务必须纳入同一 P0 threat model。
 
 3. **Desktop Session 生命周期对称清理与 Orphan 防治**
    - 当最后一个 Desktop control session（如 WebSocket / 浏览器连接）断开或过期，必须触发自动生命周期回收。
    - 闲置 companion 容器必须在短 TTL（默认 10 秒）后彻底销毁，严禁 orphan companion 长期驻留。
-   - Shell entrypoint 或容器终止时，必须通过 trap 递归清理子进程树（`pkill -P` 及 `pkill -u`），彻底 reap `xclip` 或辅助 helper。
+   - Shell/PID1 supervisor 必须真实存活到容器生命周期结束；不得在设置 `trap` 后用 `exec` 替换掉 supervisor 并继续宣称 trap 生效。
+   - helper 清理不得依赖假定用户名（例如仅 `pkill -u wechat`）。应由 supervisor 监控关键子进程，并依赖 Docker/container cgroup stop/remove 作为最终全容器回收边界；任一关键子进程退出时应对称终止 companion。
 
 4. **无界 Subprocess 轮询严禁启用**
    - 默认彻底禁用未经验证的剪贴板轮询或未 reap 的外部 CLI 调用（如 `xclip`）。
-   - 除非处于安全上下文且具备严格的 timeout + wait/reap 机制，否则不得在循环中反复 fork 子进程。
+   - HTTPS / browser secure context 只解决浏览器 API 权限问题，不是 subprocess 安全证明。除非 clipboard/backend 已通过独立的 timeout + wait/reap / no-external-fork 审计和真实 Host Stability Gate，否则不得仅靠环境变量重新启用。
+   - 任何循环中反复 fork 外部 CLI 的实现都必须有严格 timeout、wait/reap、频率上限与故障熔断；缺任一项则 fail-closed 禁用。
 
 5. **任务结束垃圾检查 (Task Garbage Check)**
    - 任何执行自动化测试、benchmark、profiling 或 canary 的 Agent，必须在退出前验证进程与容器计数。
    - 若发现任何单调增长的 subprocess、zombie 进程或 orphan companion，判定为 FAIL 并阻断发布。
+   - 模拟/Mock churn 只能作为逻辑回归，不能命名为或替代真实 Host Soak。P0 资源事故后的放行必须在真实容器/cgroup/宿主机上观测进程、`pids.current`、`pids.events`、CPU/RAM、load、SSH/ping 与 orphan 状态。
 

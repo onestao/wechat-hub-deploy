@@ -261,7 +261,7 @@ AgentWechat：
 - companion 使用当前 Runtime Manager 的同一 image layer，但覆盖 Entrypoint，只执行 `selkies ... --mode=websockets --enable-resize=true`。因此不会触发 LinuxServer s6、`/scripts/start.sh`、WeChat autostart 或第二套桌面初始化。
 - Browser → WeChat Hub Desktop Gateway → account-specific Selkies companion。companion 没有 Host `PortBindings`；其 `8081` 只存在于该 AgentWechat child 的 network namespace。
 - 每账号另有独立 `desktop-auth-token`（0600），与 agent-wechat send/API token 分离。它通过只读 secret file 注入 companion，实际值不进入 Docker Env/command。Selkies 自身只监听 companion/shared namespace 的 `127.0.0.1:8082` 且关闭内建 Basic Auth；前置的 `selkies_attach_gateway.py` 才监听 internal `:8081`，以常量时间校验 `X-WeChat-Hub-Desktop-Token` 后再剥离该 header 转发 HTTP/WebSocket。这样 secret 不进入 Selkies 参数/环境/日志，Browser URL/JSON/session descriptor 也不包含该值。
-- Selkies 提供本地 IME/Unicode 输入、双向文本 clipboard、binary clipboard、文件 upload/download、屏幕设置、DPI scaling、CSS scaling/fullscreen/trackpad/soft keyboard 等浏览器桌面能力。危险的 Selkies command websocket 和 sharing/gamepad/audio/microphone 能力默认锁定关闭。
+- Selkies Attach 仍提供本地 IME/Unicode 输入、文件 upload/download、屏幕设置、DPI scaling、CSS scaling/fullscreen/trackpad/soft keyboard。**P0 xclip 事故后，rc.2 的 text/binary clipboard 已硬锁关闭且不能通过环境变量重新开启**；危险的 Selkies command websocket 和 sharing/gamepad/audio/microphone 能力也继续锁定关闭。
 - 每账号增加独立 `browser-files` volume：Selkies 上传目录 `/config/Desktop` 与同一账号 WeChat 可见的 `/home/wechat/WeChatHubFiles/Desktop` 是同一份数据。账号 A/B 不共享该目录。
 - noVNC/x11vnc 继续保留为自动 fallback/救援桌面。老的、当前正在运行且尚未挂载新 X11/files volume 的 AgentWechat child **不会被为了桌面功能自动重建**；自动模式先回退 noVNC，等用户正常 restart 该账号后再切 Selkies。
 - Desktop Gateway 同时代理普通 HTTP、WebSocket Upgrade、binary/text frames、ping/pong 与长连接；session descriptor 记录 `desktop_provider=selkies|novnc`，但不记录任何 upstream token。
@@ -271,7 +271,7 @@ AgentWechat：
 - 两个账号的 Gateway session 分别解析到各自 Registry account，不能交叉到另一 child container。
 - QR PNG 与 desktop descriptor 都通过 `Cache-Control: no-store` 返回。
 
-浏览器安全上下文说明：Selkies 页面内的中文输入、文件选择/上传和手动 clipboard UI 不依赖第二个微信客户端；但浏览器的系统级 Clipboard API 在 LAN 纯 HTTP 下可能被 Chrome/Edge 的 secure-context 策略限制。生产环境若希望完整的自动系统剪贴板体验，应让 Console/Desktop 入口通过 HTTPS 反向代理访问，并用 `WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME/HOST/PORT` 告诉 Console 实际浏览器入口。
+浏览器安全上下文说明：Selkies 页面内的中文输入、文件选择/上传不依赖第二个微信客户端。HTTPS 仍是未来浏览器 Clipboard API 的必要条件，但**不是 xclip 子进程安全性的充分条件**；因此 rc.2 即使通过 HTTPS 访问也保持 clipboard 关闭。只有后续版本完成 clipboard backend/reaper 审计和新的 Host Stability Gate 后才允许重新启用。
 
 在真实 NAS acceptance 完成前，Console 始终显示 **AgentWechat 增强模式（Beta）**，不宣称生产验证已经完成。
 

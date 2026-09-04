@@ -873,3 +873,29 @@ git diff --check                   PASS（仅现有 LF/CRLF warning）
 
 本节目前属于 **source complete / live pending**。由于 Runtime reproducible source build 仍被 NAS 外网/APT 阻塞，本轮没有重建当前真实 A/B Runtime，也没有为 UI 功能打断已经登录的微信。正式 Live Gate 仍需在可 source-build 的 Runtime image 上验证：中文 IME、text/image clipboard、file upload/download、resize/DPI、A/B Desktop/files isolation、on-demand RAM/CPU，以及每账号仍然只有一份 WeChat process。
 
+## 17. P0 Host Stability superseding note — 2026-09-04
+
+第 16 节记录的是 **P0 xclip 事故发生前** 的 Selkies Desktop source 状态，其中关于 clipboard 可启用/HTTPS 下恢复 clipboard 的描述已被本节和 `P0_SELKIES_XCLIP_INCIDENT_REPORT.md` **明确取代**，不得再作为 rc.2 验收依据。
+
+真实事故中，Unraid load average 达到 `277.11 / 281.70 / 240.95`，`wechat-hub-f-live-runtime` 内观测到 7,000+ 个 `xclip -selection clipboard -o -t TARGETS` task，Host 失去正常 SSH/Ping 响应并最终物理重启。`0.1.0-rc.1` 因此保持 **BLOCKED — P0 HOST STABILITY**；H2/H3 保持停止。
+
+独立复核原 P0 hotfix 后又补出三个必须进入 rc.2 的 source 修复：
+
+1. Runtime Manager 镜像本身继承 LinuxServer `baseimage-selkies`，其原生 clipboard 默认开启；仅设置 `WECHAT_SELKIES_CLIPBOARD_ENABLED` 只能保护 AgentWechat companion，不能保护事故发生的 Runtime Manager。rc.2 现已在 Dockerfile、Stack、production overlay、standalone Runtime compose 中直接锁定 `SELKIES_CLIPBOARD_* = false|locked`。
+2. companion 原 shell `trap` 后使用 `exec python3`，trap 实际不会存活；且 `pkill -u wechat` 依赖并未保证存在的真实 UID。rc.2 改为 Docker `Init=true` + Bash lifecycle supervisor，Selkies/internal proxy 任一退出都会触发对称清理，Docker stop/remove 作为最终 whole-cgroup reap 边界。
+3. 原 `PidsLimit/Memory/CPU` override 可通过 `-1/0/超大值` 绕过“硬上限”。rc.2 对 companion 和 primary 的安全资源变量增加正值校验和 bounded clamp，不能通过环境变量恢复 unlimited。
+
+此外，rc.2 **彻底取消 clipboard runtime opt-in**：即使设置 `WECHAT_SELKIES_CLIPBOARD_ENABLED=true` 也保持 text/binary clipboard 关闭。HTTPS 只解决浏览器 secure-context，不是 xclip subprocess safety proof。未来重新启用 clipboard 必须先完成 backend/reaper 独立审计和新的 Host Stability Gate。
+
+最新 source regression：
+
+```text
+Runtime complete tests             49 / 49 PASS
+Stack wiring                       10 / 10 PASS
+60-cycle lifecycle churn            PASS（仅模拟；不是 NAS Host Soak）
+```
+
+这里特别纠正旧报告口径：模拟 churn 使用 dummy companion manager，不启动真实 Selkies/xclip/Docker cgroup，因此不能声称 `xclip=0` 的真实 Soak 证据。真正 Principle G 仍为 **NOT RUN / BLOCKING rc.2 promotion**。
+
+rc.2 Canary 必须在真实单账号容器上至少 30 分钟记录：`pids.current`、`pids.max`、`pids.events max`、真实 xclip count、companion create/reap、CPU/RAM、Host load、SSH latency、Ping loss 和退出后的 orphan 状态。cgroup PIDs 包含 Linux threads/tasks，因此 `100/256` 只能在采集正常基线与峰值 headroom 后正式接受。
+

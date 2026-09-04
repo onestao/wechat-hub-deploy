@@ -9,7 +9,14 @@ services:
     pids_limit: 200
     environment:
       - WECHAT_SELKIES_ATTACH_ENABLED=true
-      - WECHAT_SELKIES_CLIPBOARD_ENABLED=false
+      # P0: also disable clipboard in the Runtime Manager's own
+      # linuxserver/baseimage-selkies service. The WECHAT_* flag above only
+      # controls the on-demand AgentWechat companion.
+      - SELKIES_CLIPBOARD_ENABLED=false|locked
+      - SELKIES_CLIPBOARD_IN_ENABLED=false|locked
+      - SELKIES_CLIPBOARD_OUT_ENABLED=false|locked
+      - SELKIES_ENABLE_BINARY_CLIPBOARD=false|locked
+      - SELKIES_UI_SIDEBAR_SHOW_CLIPBOARD=false|locked
       - WECHAT_SELKIES_PIDS_LIMIT=100
       - AGENT_WECHAT_PIDS_LIMIT=256
       - WECHAT_SELKIES_IDLE_TTL_SECONDS=10
@@ -35,3 +42,4 @@ services:
   efb-multi:
     image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15
     build: !reset null
+    pids_limit: 100

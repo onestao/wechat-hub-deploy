@@ -13,6 +13,7 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    pids_limit: 100
 
   wechat-runtime:
     # Runtime + Core are the minimum production pair.  They intentionally
@@ -65,8 +66,15 @@ services:
       # has no Host-published port. noVNC remains the automatic fallback.
       - WECHAT_SELKIES_ATTACH_ENABLED=${WECHAT_SELKIES_ATTACH_ENABLED:-true}
       - WECHAT_SELKIES_ATTACH_IMAGE=${WECHAT_SELKIES_ATTACH_IMAGE:-}
-      # P0 Safety: Clipboard disabled by default to prevent xclip subprocess leaks.
-      - WECHAT_SELKIES_CLIPBOARD_ENABLED=${WECHAT_SELKIES_CLIPBOARD_ENABLED:-false}
+      # P0 Safety: AgentWechat Selkies clipboard is hard-disabled in rc.2;
+      # there is intentionally no runtime override until the backend is audited.
+      # The Runtime Manager image is itself based on baseimage-selkies; these
+      # settings protect that built-in Selkies process, not just the companion.
+      - SELKIES_CLIPBOARD_ENABLED=false|locked
+      - SELKIES_CLIPBOARD_IN_ENABLED=false|locked
+      - SELKIES_CLIPBOARD_OUT_ENABLED=false|locked
+      - SELKIES_ENABLE_BINARY_CLIPBOARD=false|locked
+      - SELKIES_UI_SIDEBAR_SHOW_CLIPBOARD=false|locked
       - WECHAT_SELKIES_PIDS_LIMIT=${WECHAT_SELKIES_PIDS_LIMIT:-100}
       - AGENT_WECHAT_PIDS_LIMIT=${AGENT_WECHAT_PIDS_LIMIT:-256}
       - WECHAT_SELKIES_IDLE_TTL_SECONDS=${WECHAT_SELKIES_IDLE_TTL_SECONDS:-10}
@@ -156,6 +164,7 @@ services:
       wechat-core:
         condition: service_healthy
     restart: unless-stopped
+    pids_limit: 100
     volumes:
       - "${EFB_PROFILE_DIR:-./efb-profile}:/root/.ehforwarderbot"
 

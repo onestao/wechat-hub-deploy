@@ -2,6 +2,8 @@
 
 版本：2026-09-02
 
+> **P0 superseding notice — 2026-09-04:** `0.1.0-rc.1` NAS acceptance is blocked by the Selkies/xclip host-stability incident. H2 resource profiling and H3 acceptance instructions later in this taskbook are **suspended** until a source-built `0.1.0-rc.2` passes the real single-account Host Stability Canary described in `P0_SELKIES_XCLIP_INCIDENT_REPORT.md` and `docs/POST_F_RELEASE_STATUS.md`. rc.2 clipboard is hard-disabled even under HTTPS; older clipboard Gate instructions in this taskbook are historical and must not be executed for rc.2.
+
 适用目录：
 
 ```text

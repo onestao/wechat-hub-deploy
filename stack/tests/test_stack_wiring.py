@@ -112,11 +112,48 @@ class StackWiringTests(unittest.TestCase):
         self.assertIn("Authorization", gateway_source)
         self.assertIn("selkies_upstream_url", gateway_source)
 
+    def test_runtime_manager_base_selkies_clipboard_is_hard_disabled(self):
+        runtime = self.services["wechat-runtime"]
+        environment = set(str(item) for item in runtime.get("environment", []))
+        expected = {
+            "SELKIES_CLIPBOARD_ENABLED=false|locked",
+            "SELKIES_CLIPBOARD_IN_ENABLED=false|locked",
+            "SELKIES_CLIPBOARD_OUT_ENABLED=false|locked",
+            "SELKIES_ENABLE_BINARY_CLIPBOARD=false|locked",
+            "SELKIES_UI_SIDEBAR_SHOW_CLIPBOARD=false|locked",
+        }
+        self.assertTrue(expected.issubset(environment))
+        self.assertEqual(runtime.get("pids_limit"), 200)
+
+        # The production overlay uses Docker Compose's ``!reset`` tag, which
+        # PyYAML's SafeLoader intentionally does not understand.  Keep this
+        # assertion textual and narrowly scoped to the explicit P0 settings.
+        production_text = (
+            STACK_ROOT.parent / "release" / "docker-compose.production.yml"
+        ).read_text(encoding="utf-8")
+        for setting in expected:
+            self.assertIn(f"- {setting}", production_text)
+        self.assertIn("pids_limit: 200", production_text)
+
     def test_optional_services_depend_only_on_healthy_core(self):
         for service_name in ("efb-multi", "wechat-console", "wechat-agent"):
             depends = self.services[service_name]["depends_on"]
             self.assertEqual(set(depends), {"wechat-core"})
             self.assertEqual(depends["wechat-core"]["condition"], "service_healthy")
+
+    def test_all_stack_services_have_explicit_pids_limits(self):
+        for service_name, service in self.services.items():
+            self.assertIsInstance(
+                service.get("pids_limit"),
+                int,
+                f"{service_name} must have an explicit pids_limit",
+            )
+            self.assertGreater(service["pids_limit"], 0)
+
+        production_text = (
+            STACK_ROOT.parent / "release" / "docker-compose.production.yml"
+        ).read_text(encoding="utf-8")
+        self.assertRegex(production_text, r"(?s)efb-multi:.*?pids_limit:\s*100")
 
     def test_console_and_agent_state_are_persistent(self):
         console = self.services["wechat-console"]

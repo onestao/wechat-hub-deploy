@@ -10,28 +10,29 @@ Status: 0.1.0-rc.1 NAS ACCEPTANCE BLOCKED — P0 HOST STABILITY
 - **Release Affected**: `0.1.0-rc.1`
 - **NAS Acceptance (H3)**: `BLOCKED — P0 HOST STABILITY`
 - **Resource Profiling (H2)**: `SUSPENDED`
-- **Incident Summary**: During long-running deployment on Unraid, the Selkies Desktop clipboard synchronization loop spawned >7,000 hanging `xclip -selection clipboard -o -t TARGETS` processes without containment (due to unconstrained Docker `HostConfig.PidsLimit=<nil>`). This caused severe CPU scheduler contention and timer queue thrashing (load average 277.11, 281.70, 240.95), exhausting socket responsiveness for SSH/ping.
+- **Incident Summary**: During Selkies Desktop activation on Unraid, >7,000 hanging `xclip -selection clipboard -o -t TARGETS` processes accumulated without a container PID boundary (`HostConfig.PidsLimit=<nil>`), coincident with load average `277.11, 281.70, 240.95` and loss of SSH/ping responsiveness. The subprocess leak and host-wide resource starvation are confirmed; exact runnable/D-state distribution, scheduler-lock mechanics, and the precise upstream reaping defect remain inferred unless reproduced with tracing.
 - **Host Recovery**: Unraid NAS recovered cleanly after physical reboot. All WeChat Hub containers have been set to `restart=no` and safely stopped. Zero data loss: all `/data`, `/home/wechat`, database volumes, and NAS services remain completely intact. No prune operations were executed.
 
 ### P0 Remediation Implemented (Candidate for 0.1.0-rc.2)
 
-1. **Clipboard Disabled by Default**: Selkies clipboard (in/out/binary/text/image) disabled by default via `_selkies_attach_env()`. Chinese IME, mouse, keyboard, resize, DPI, file transfer remain 100% functional.
+1. **Clipboard Hard-Disabled for rc.2**: AgentWechat companion clipboard (in/out/binary/text/image) is locked off in `_selkies_attach_env()` and cannot be re-enabled by environment override in rc.2. Independent review also found that the Runtime image itself inherits LinuxServer `baseimage-selkies`, whose native clipboard defaults to enabled. The follow-up source patch therefore hard-disables the native `SELKIES_CLIPBOARD_*` settings in the Runtime Dockerfile and all deployment paths as well. HTTPS alone is not treated as a safety proof for xclip. Chinese IME, mouse, keyboard, resize, DPI, and file transfer remain enabled in source configuration but still require rc.2 live canary verification.
 2. **Strict Cgroup PidsLimit**: Companion container hard-capped at `PidsLimit = 100` (`WECHAT_SELKIES_PIDS_LIMIT`). Primary AgentWechat container hard-capped at `PidsLimit = 256` (`AGENT_WECHAT_PIDS_LIMIT`). Compose services capped at 100-200.
-3. **Session Lifecycle Auto-Reaping**: `desktop_gateway.py` schedules idle companion cleanup upon last WebSocket / session disconnect (10s TTL). Entrypoint traps kill child process trees (`pkill -P`, `pkill -u wechat xclip`).
+3. **Session Lifecycle Auto-Reaping**: `desktop_gateway.py` schedules idle companion cleanup upon last WebSocket / session disconnect (10s TTL). Independent review found the first shell trap was invalidated by a later `exec`; rc.2 follow-up source now keeps a Bash PID1 supervisor alive, monitors Selkies + internal gateway with `wait -n`, cleans both on either-child exit, and relies on Docker stop/remove as the final whole-cgroup reap boundary.
 4. **Creation Failure Symmetry**: All container creation failures automatically trigger immediate cleanup of orphan companions and artifacts.
-5. **Comprehensive Automated Tests**: 43 unit tests and a 60-cycle Soak Gate test passing cleanly (0 bytes memory leak, 100% companion reap).
+5. **Automated Regression**: Independent rerun after the Runtime-manager/baseimage fix, supervisor fix, bounded resource-override hardening, and complete Compose PIDs coverage: `test_wechat_runtime.py` `45/45 PASS`, simulated churn `1/1 PASS`, complete Runtime suite `49/49 PASS`, Stack wiring `10/10 PASS`. The 60-cycle test is explicitly a **simulated lifecycle churn regression** using a dummy companion manager. It verifies bounded leases/timers and callback cleanup, but does not launch real Selkies/xclip/Docker cgroups and is **not** the required NAS host soak.
 
 ### Release Policy
 
 - **DO NOT MODIFY 0.1.0-rc.1**: `0.1.0-rc.1` digests are immutable and will NOT be overwritten.
 - **Target Release**: `0.1.0-rc.2` (hotfix RC).
 - **Next Progression Gate**:
-  1. Commit P0 hotfix in `work/runtime` and main repo.
-  2. Push to GitHub to trigger GitHub Actions build for `wechat-hub-runtime:0.1.0-rc.2`.
+  1. Commit/review the follow-up baseimage clipboard hard-disable on top of `work/runtime@a6b37b1` and `main@bacf555`.
+  2. Push the reviewed commits to GitHub to trigger GitHub Actions build for `wechat-hub-runtime:0.1.0-rc.2`.
   3. Obtain immutable GHCR SHA256 digest for `rc.2`.
   4. Author `release/manifest-0.1.0-rc.2.yaml` and update production compose.
   5. Canary deploy on Single Account (Beta Canary) on NAS.
-  6. Resume H3 NAS Acceptance and H2 Profiling only after Canary soak PASS.
+  6. Run a **real 30-minute canary host soak** recording `pids.current/pids.max`, real `xclip` process count, companion create/reap, CPU/RAM, host load, SSH latency and ping loss.
+  7. Resume H3 NAS Acceptance and H2 Profiling only after that real Canary soak PASS.
 
 ---
 

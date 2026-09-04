@@ -4,7 +4,7 @@
 **Severity**: P0 (Host Exhaustion / Unresponsive Host)  
 **Affected Target**: Unraid NAS (Continuous Uptime: 146 Days prior to incident)  
 **Release Impacted**: `0.1.0-rc.1`  
-**Current Resolution Status**: CONTAINED & MITIGATED (Hotfix Committed in `work/runtime`, Automated Tests & Soak Gate PASS)  
+**Current Resolution Status**: CONTAINED; SOURCE MITIGATION IN REVIEW (Automated regression PASS; real NAS canary soak still required)
 **Release Gate Status**: `0.1.0-rc.1` NAS ACCEPTANCE BLOCKED — P0 HOST STABILITY  
 
 ---
@@ -19,7 +19,7 @@
 | **2026-09-04 ~00:15** | Host Recovery | User performed physical reboot / IPMI reset of Unraid host to recover administrative connectivity. |
 | **2026-09-04 ~00:20** | Containment | All WeChat Hub containers updated to `--restart=no` and safely stopped. Zero data deletion; all persistent volumes, `/data`, `/home/wechat`, and databases preserved. |
 | **2026-09-04 ~00:35** | P0 Hotfix | Principles A through E implemented in `work/runtime` (clipboard disabled, cgroup PidsLimit added, lifecycle auto-reap, failure symmetry). |
-| **2026-09-04 ~00:50** | Validation | 43 unit/integration tests and automated 60-cycle Soak Gate executed with 100% PASS. `AGENT.md` updated with Section 15. |
+| **2026-09-04 ~00:50** | Validation | Runtime unit/integration tests and a 60-cycle **simulated lifecycle churn test** executed with PASS. This is not a real Selkies/xclip/Docker/NAS soak and does not replace the rc.2 canary. `AGENT.md` updated with Section 15. |
 | **2026-09-04 ~01:05** | Sign-Off | P0 report published; `0.1.0-rc.1` marked BLOCKED; preparation for `0.1.0-rc.2` initiated. |
 
 ---
@@ -49,10 +49,10 @@
 ### Confirmed Root Cause
 1. **No Cgroup Process Boundary (`PidsLimit=<nil>`)**:
    Docker containers were spawned without `PidsLimit`. A subprocess leak inside any container was able to allocate arbitrary numbers of processes directly in the host kernel process table.
-2. **Runnable / D-State Task Queue Saturation**:
-   Global `kernel.pid_max` was **not** exhausted (7,059 << 4,194,304). Instead, over 7,000 hanging, blocked, or rapidly polling `xclip` processes overwhelmed the Linux kernel task scheduler. CPU scheduler lock contention and timer queue thrashing caused complete starvation of user-space processes, making `sshd` unable to fork/authenticate and network drivers unable to process packets in time.
-3. **Selkies Base Image Polling Loop**:
-   The LinuxServer `baseimage-selkies` WebRTC service includes clipboard synchronization. When `SELKIES_CLIPBOARD_ENABLED=true`, it repeatedly forks `xclip` to query the X11 clipboard. Without an active X11 selection owner or when the call hung, child processes were not reaped with a strict timeout, leading to unbounded accumulation.
+2. **Massive Task Accumulation Coincident With Host Starvation**:
+   Global `kernel.pid_max` was **not** exhausted (7,059 << 4,194,304). More than 7,000 `xclip` tasks accumulated at the same time as extreme load and loss of SSH responsiveness. This is sufficient to establish a severe subprocess leak and scheduler/resource pressure, but the incident evidence retained so far does **not** preserve a complete per-task state distribution (for example exact runnable vs. D-state counts), scheduler lock statistics, or proof that `sshd` failed specifically at `fork()`. Those lower-level mechanisms therefore remain inferred rather than confirmed.
+3. **Selkies Clipboard Path Was Enabled at the Incident Boundary**:
+   The Runtime image is based on LinuxServer `baseimage-selkies`, whose clipboard synchronization defaults to enabled unless the native `SELKIES_CLIPBOARD_*` settings are overridden. The observed command signature (`xclip -selection clipboard -o -t TARGETS`) ties the leak to the X11 clipboard path. The exact upstream loop/reaping defect should remain described as inferred unless reproduced with process-level tracing.
 
 ### Inferred Root Cause
 - The trigger was exacerbated by LAN HTTP access without browser HTTPS secure context, causing Selkies clipboard API to enter error handling loops while repeatedly querying X11 selections.
@@ -73,7 +73,7 @@
 3. **Operations Forbidden & Enforced**:
    - `docker system prune` / `docker volume prune`: **STRICTLY FORBIDDEN AND NOT RUN**.
    - No data directories or persistent volumes were removed or modified.
-   - Non-WeChat Hub workloads on Unraid were completely unaffected.
+   - No evidence was found of data/configuration modification to non-WeChat Hub workloads. Their **availability/performance was necessarily exposed to the host-wide stall**, so they must not be described as completely unaffected.
 
 ---
 
@@ -90,7 +90,8 @@
     - `SELKIES_ENABLE_BINARY_CLIPBOARD=false|locked`
     - `SELKIES_UI_SIDEBAR_SHOW_CLIPBOARD=false|locked`
   - Preserved Features: Chinese IME (`local_ime`), mouse, keyboard, dynamic resolution resize, DPI scaling, file upload, file download.
-  - Safe opt-in via environment variable: `WECHAT_SELKIES_CLIPBOARD_ENABLED=true` (requires HTTPS).
+  - **rc.2 has no runtime opt-in**: clipboard is hard-disabled even if `WECHAT_SELKIES_CLIPBOARD_ENABLED=true` is injected. HTTPS is necessary for browser Clipboard APIs but is not sufficient to prove the upstream X11/xclip subprocess path safe.
+- **Independent Runtime Manager boundary**: the Runtime image itself inherits LinuxServer `baseimage-selkies`; its built-in Selkies service is a separate process path from the AgentWechat companion. Follow-up review therefore also hard-disables the native baseimage settings `SELKIES_CLIPBOARD_ENABLED`, `SELKIES_CLIPBOARD_IN_ENABLED`, `SELKIES_CLIPBOARD_OUT_ENABLED`, `SELKIES_ENABLE_BINARY_CLIPBOARD`, and the clipboard sidebar in the Dockerfile/Stack/production overlay. The standalone Runtime compose also carries this hard-disable explicitly.
 
 ### Principle B & C: Cgroup PidsLimit & Resource Hard Caps
 - Companion container:
@@ -106,14 +107,14 @@
   - `wechat-console`: `pids_limit: 100`
   - `wechat-agent`: `pids_limit: 100`
   - `efb-multi`: `pids_limit: 100`
-- **Fail-Closed Guarantee**: Any rogue process fork hitting the limit receives `-EAGAIN` within the container cgroup. The host kernel scheduler cannot be affected.
+- **Fail-Closed Boundary**: A process-creation storm is bounded by the container cgroup and further forks are rejected after the limit is reached. This sharply limits blast radius, but it does **not** make host impact mathematically impossible: a bounded number of runnable tasks can still consume CPU/I/O, which is why the Selkies companion also has CPU/memory caps and the real NAS canary must monitor host load/latency.
 
 ### Principle D: Desktop Session Lifecycle & Companion Auto-Reap
 - In [desktop_gateway.py](work/runtime/root/scripts/wechat/desktop_gateway.py):
   - When the last WebSocket/browser session disconnects, `release_manual_gui_lease` schedules idle companion cleanup.
   - Default TTL: 10 seconds (`WECHAT_SELKIES_IDLE_TTL_SECONDS=10`).
   - Upon TTL expiration, `_remove_selkies_container` terminates and removes the companion container.
-  - Companion shell entrypoint trap includes `pkill -P "$selkies_pid"` and `pkill -u wechat xclip` to prevent orphan helper processes.
+  - Follow-up review found the original trap was placed before `exec python3`, so the shell supervisor/trap would not survive. rc.2 source now keeps a Bash PID1 supervisor alive, starts Selkies and the internal gateway as separate children, uses `wait -n` to detect either critical child exiting, and performs symmetrical cleanup before container exit. Cleanup no longer depends on an assumed `wechat` UID; Docker stop/remove remains the final whole-cgroup reap boundary.
 
 ### Principle E: Creation / Deletion Symmetry
 - `ensure_selkies_desktop` wrapped in full `try ... except`:
@@ -127,7 +128,7 @@
 ### 6.1 Unit & Integration Test Suite
 - Test module: [work/runtime/tests/test_wechat_runtime.py](work/runtime/tests/test_wechat_runtime.py)
 - Command: `pytest work/runtime/tests/test_wechat_runtime.py`
-- **Result**: **43 passed in 0.74s (100% PASS)**
+- **Independent review result after closing the Runtime-manager/baseimage clipboard gap, supervisor lifetime bug, resource-override fail-open, and Compose PIDs coverage gaps**: `test_wechat_runtime.py` **45/45 PASS**, simulated churn **1/1 PASS**, complete `work/runtime/tests` **49/49 PASS**, Stack wiring **10/10 PASS**.
 - Dedicated regression tests:
   1. `test_selkies_clipboard_override_via_env`: Verifies default disabled state and env override.
   2. `test_companion_pids_limit_and_resource_caps_override`: Verifies PidsLimit=100 and memory caps.
@@ -137,17 +138,20 @@
   6. `test_runtime_account_api_returns_fast_degraded_when_companion_fails`: Verifies fast degraded response without blocking.
   7. `test_repeated_session_acquire_release_has_bounded_idle_reap`: Verifies 50 rapid lease churn cycles leave zero orphan leases or timers.
 
-### 6.2 Controlled Soak Gate (Principle G)
+### 6.2 Simulated Lifecycle Churn Test (Pre-Canary Only)
 - Test module: [work/runtime/tests/test_soak_gate.py](work/runtime/tests/test_soak_gate.py)
-- Protocol: 60 cycles simulating repeated multi-account desktop session acquire, churn, and release.
-- **Metrics Recorded**:
-  - `xclip` process count: `0` (clipboard disabled).
+- Protocol: 60 cycles simulating repeated multi-account desktop session acquire, churn, and release using an in-process dummy companion manager.
+- **What it verifies**:
   - Leases at cycle end: `0` (bounded).
   - Active cleanup timers at cycle end: `0` (bounded).
-  - Companion containers reaped: `180 / 180` (100% cleanup rate).
+  - Simulated companion removal callbacks: `180 / 180`.
   - Memory leak in `desktop_gateway.py`: `0 bytes` (measured via `tracemalloc`).
   - Monotonic resource growth: `None`.
-- **Verdict**: **PASS**.
+- **What it does not verify**: it does not start Selkies, does not fork or count real `xclip`, does not create Docker containers/cgroups, and does not observe Unraid host CPU/load/SSH latency. Therefore it is **PASS as a simulated lifecycle regression**, not a Principle G host soak.
+
+### 6.3 Required Real Host Soak (Principle G)
+- **Status**: **NOT YET RUN / BLOCKING rc.2 promotion**.
+- Must use the source-built `0.1.0-rc.2` Runtime image on a single canary account and record real container/host observations for at least 30 minutes: `pids.current/pids.max`, `pids.events` (`max` counter), real `xclip` count, companion lifecycle, CPU/memory, load average, SSH/ping latency, and post-session orphan checks. Note that cgroup PIDs count Linux tasks/threads as well as ordinary processes, so baseline/headroom must be measured before accepting `100/256` as production-safe values.
 
 ---
 
@@ -176,7 +180,7 @@ Publish release/manifest-0.1.0-rc.2.yaml
 Single Account Canary Deploy (Beta Canary on NAS)
   │
   ▼
-Canary Soak Gate (30 min: PIDs < 100, xclip == 0, Load normal)
+Canary Soak Gate (30 min: real cgroup/process/host observations)
   │
   ▼
 Unblock H3 NAS Acceptance & Resume H2 Resource Profiling
@@ -196,7 +200,7 @@ Unblock H3 NAS Acceptance & Resume H2 Resource Profiling
 ## 8. Remaining Risks & Recommendations
 
 1. **Clipboard Enablement Risk**:
-   If clipboard is re-enabled in the future, it must strictly require HTTPS secure context and incorporate an audited in-process reaper or WebRTC data-channel clipboard engine instead of external `xclip` forks.
+   Clipboard must remain hard-disabled for rc.2. If re-enabled in a later release, it must strictly require HTTPS secure context **and** incorporate an audited in-process reaper or a clipboard backend that does not permit unbounded external `xclip` forks. Re-enablement requires a new host-stability gate; it is not a configuration-only change.
 2. **Upstream AgentWechat Subprocesses**:
    `agent-wechat:0.11.15` wine and chromium renderer processes are now bounded by `PidsLimit: 256`, preventing wine subprocess leaks from affecting the host.
 3. **Execution Prohibition**:
