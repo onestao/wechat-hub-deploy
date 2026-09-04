@@ -1,0 +1,98 @@
+release: 0.1.0-rc.3
+platform: linux/amd64
+created: '2026-09-04T09:10:00Z'
+
+images:
+  runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:8fced2d85176f14ee9d804b0bd0d8d88786851d868ed1cb9c846e9f672bdbe9f
+  core: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
+  console: ghcr.io/onestao/wechat-hub-console@sha256:d27870c69cf964d06e09b840f984a3a8031b4863d29157aff50420f3123094a1
+  agent: ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74
+  efb: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15
+
+upstream:
+  agent_wechat:
+    image: ghcr.io/thisnick/agent-wechat:0.11.15
+    digest: sha256:31a4e351c191bcbfc75e5c10be51e207d22a3eedd97f3ff56ad579fcce717b24
+    amd64_digest: sha256:b5e92047e28ce67e34576e574d8ccf00f8619f485597109f7342a137300285c0
+    policy: pinned
+    watchtower: false
+
+p0_mitigation:
+  clipboard: HARD_DISABLED
+  pids_limits:
+    runtime_manager: 200
+    selkies_companion: 100
+    agent_wechat: 256
+    core: 100
+    console: 100
+    agent: 100
+    efb: 100
+  companion_hard_caps:
+    memory_mb: 1024
+    cpu_cores: 2.0
+    init: true
+
+desktop:
+  selkies_attach_enabled: true
+  gateway_public_scheme: http
+  gateway_public_host: ''
+  gateway_public_port: ''
+  gateway_port: 17892
+  session_ttl_seconds: 14400
+  max_ws_frame_mb: 64
+  max_http_mb: 1024
+  clipboard_gate: HARD_DISABLED_P0
+
+ports:
+  runtime_http: 3000
+  runtime_https: 3001
+  core: 8080
+  console: 8078
+  agent: 8091
+
+volumes:
+  runtime_config: true
+  runtime_state: true
+  runtime_x11: true
+  core_data: true
+  console_data: true
+  agent_data: true
+  account_private_browser_files: true
+
+rollback:
+  mechanism: manifest_digest_swap
+  preserve:
+    - account_volumes
+    - core_db
+    - data
+    - home_wechat
+    - console_db
+    - account_private_browser_files
+  forbidden:
+    - docker system prune
+    - docker volume prune
+
+canary:
+  target: unraid_nas_beta_single_account
+  date: '2026-09-04T17:46:45+08:00'
+  duration_seconds: 1846
+  duration_minutes: 30.77
+  samples: 62
+  verdict: PASS
+  evidence:
+    immutable_image_clean: true
+    source_diff_clean: true
+    xclip_count_max: 0
+    wechat_count: 1
+    alpha_running: 0
+    host_load_1m_baseline: 2.56
+    host_load_1m_min: 0.62
+    host_load_1m_end: 1.08
+    ping_latency_ms_avg: 0.31
+    cgroup_runtime_pids: 52-53/200 (events_max: 0)
+    cgroup_agent_pids: 155-158/256 (events_max: 0)
+    cgroup_companion_pids: 4/100 (events_max: 0, cleaned at round 6)
+    orphan_companion_count: 0
+    dmesg_oom_count: 0
+  h3_status: MAY RESUME
+  h2_status: SUSPENDED

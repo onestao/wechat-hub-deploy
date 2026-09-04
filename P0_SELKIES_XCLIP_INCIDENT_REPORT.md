@@ -243,3 +243,73 @@ Unblock H3 NAS Acceptance & Resume H2 Resource Profiling
    `agent-wechat:0.11.15` wine and chromium renderer processes are now bounded by `PidsLimit: 256`, preventing wine subprocess leaks from affecting the host.
 3. **Execution Prohibition**:
    In accordance with P0 instructions, H2 profiling and H3 acceptance drills remain strictly paused until `0.1.0-rc.2` image is published by CI and passes canary soak.
+
+---
+
+## 9. 0.1.0-rc.3 不可变发布物现场核验与验收结论 (Immutable Release Artifact Verification & Closure)
+
+### 9.1 背景与独立复核收敛
+在用户对 `0.1.0-rc.2` Canary 的独立审计中发现：
+1. 前一轮 Canary 中 Unraid 运行的镜像 OCI revision 为 `d10fc94`，在联调排查期间容器内 `/scripts/wechat/agent_wechat_runtime.py` 被临时 hot-patch 至最终 `4b76bf6` 版本（补齐了 Selkies probe 对 HTTP 426 的兼容及 AgentWechat 容器的 `IpcMode: "shareable"`）；
+2. 导致前一轮现场虽然验证了“P0 缓解行为本身有效”，但无法闭环为“干净构建的不可变发布制品已验收”；
+3. 前一轮采样时长精确为 1784 秒（29分44秒），距任务书“至少 30 分钟”缺少 16 秒边界。
+
+**治理决策**：
+- 严格遵循发布物不可变原则：**已发布的 `0.1.0-rc.1` 和 `0.1.0-rc.2` 保持不可变，严禁覆盖 tag 或 digest**。
+- 将现场验证过的 `4b76bf6` 干净源码正式推进并构建为 **`0.1.0-rc.3`**。
+- NAS Canary 严格采用 **62 轮 × 30 秒（持续 1846 秒 = 30 分 46 秒，>= 30m30s）**，彻底消除边界争议。
+- 启动前后通过 `docker diff` 严格核验 Runtime 核心源码零修改，无任何 live patch。
+
+### 9.2 发布流水线与制品签名
+- **Runtime 源码分支/提交**: `feat/multi-account-runtime` @ `4b76bf67bb3e2e95d9bedf25b1c3cbb53ec7cd9f`
+- **本地测试**: Runtime 回归测试 `50 / 50 PASS`，Stack wiring 测试 `10 / 10 PASS`。
+- **GitHub Actions CI Run**: `33839413173` (PASS, test 4s, docker-build 5m54s)
+- **GitHub Actions Publish Run**: `33856493083` (PASS, preflight 6s, publish 5m46s)
+- **不可变 GHCR 镜像 Tag**: `ghcr.io/onestao/wechat-hub-runtime:0.1.0-rc.3`
+- **不可变 SHA256 Digest**: `sha256:8fced2d85176f14ee9d804b0bd0d8d88786851d868ed1cb9c846e9f672bdbe9f`
+- **OCI Metadata Revision**: `4b76bf67bb3e2e95d9bedf25b1c3cbb53ec7cd9f`
+- **Asset Export Run**: `33857107664` (`wechat-hub-runtime-0.1.0-rc.3.tar.zst` 1,766,447,181 字节)
+- **NAS 实际载入 Image ID**: `sha256:44123d5dfa8621dbd5b086e26426e811ed7e793fce8a5f3929adf48b63b6085a`
+- **发布清单**: `release/manifest-0.1.0-rc.3.yaml` 已创建并锁定该 digest。
+
+### 9.3 干净不可变镜像验证 (Zero Hot-Patch)
+1. **容器重新创建**: `wechat-hub-f-live-runtime` 彻底销毁并基于全新镜像 `44123d5dfa86` 重新创建。
+2. **源码零篡改检查 (`docker diff`)**:
+   - Canary 启动前: `docker diff wechat-hub-f-live-runtime | grep -E '/scripts/wechat/.*\.py'` -> **无任何修改**（仅存在正常的 `__pycache__` 字节码）。
+   - Canary 结束后: `docker diff wechat-hub-f-live-runtime | grep -E '/scripts/wechat/.*\.py'` -> **无任何修改**。
+   - 彻底消除了容器层 `C /scripts/wechat/agent_wechat_runtime.py` 的不一致性。
+
+### 9.4 62 轮 NAS Beta Canary 最终审计数据
+- **观测窗口**: `2026-09-04T17:46:45+08:00` 至 `2026-09-04T18:17:31+08:00`
+- **持续时长**: **1846 秒（30 分 46 秒，严格 >= 30m30s）**
+- **采样轮次**: **62 / 62 轮，全部连续 PASS**
+- **关键稳定性指标**:
+  - **Host-wide xclip 计数**: 全程保持 **0**。
+  - **WeChat 进程实例数**: 全程严格为 **1**。
+  - **Alpha 账号隔离**: 全程运行数为 **0**。
+  - **Cgroup PidsLimit 边界与拒绝事件**:
+    - `wechat-hub-f-live-runtime`: baseline 52, min 52, max 53, end 52 (硬限 200, 余量 147), `pids.events max` = **0**
+    - `wechat-agent-testb-a7c4f6c8`: baseline 155, min 155, max 158, end 155 (硬限 256, 余量 98), `pids.events max` = **0**
+    - `wechat-desktop-testb-a7c4f6c8`: baseline 4, peak 4 (硬限 100), 第 6 轮按测试用例主动释放，2 秒内完成容器停止与销毁，第 7-62 轮孤儿计数为 **0**, `pids.events max` = **0**
+    - `wechat-hub-f-live-core`: baseline 5, min 4, max 5, end 4 (硬限 100), `pids.events max` = **0**
+    - `wechat-hub-f-live-console`: baseline 4, min 2, max 4, end 3 (硬限 100), `pids.events max` = **0**
+  - **Selkies Companion 资源硬限与生命周期**:
+    - 内存上限: 1024 MiB (`1073741824`)
+    - CPU 上限: 2.0 核 (`NanoCpus: 2000000000`)
+    - `Init: true` 启用，IPC 成功加入 AgentWechat 的 shareable 命名空间。
+    - 剪贴板完全锁定: `SELKIES_CLIPBOARD_*=false|locked`。
+    - 会话结束后无残留孤儿进程与容器。
+  - **宿主机稳定性**:
+    - 1分钟平均负载: 起始 2.56 -> 最低 0.62 -> 结束 1.08
+    - 网关 Ping 延迟: 均值 ~0.31 ms (0.155 ms ~ 0.537 ms)
+    - OOM 异常事件: **0**
+  - **历史版本防覆盖验证**:
+    - `0.1.0-rc.1`: `sha256:a937410908e6fe1df0b06df9b9e3ef51a532fc0d56405fc3d0e0817b9a09244c` 未变动。
+    - `0.1.0-rc.2`: `sha256:58ad35b9d01ebc0b2d4435978fd2a3281628228507653c83a08788b6c4b9b712` 未变动。
+    - `0.1.0-rc.3`: `sha256:8fced2d85176f14ee9d804b0bd0d8d88786851d868ed1cb9c846e9f672bdbe9f` 新增并锁定。
+
+### 9.5 门禁最终状态与判定
+- **P0 RC3 IMMUTABLE HOST STABILITY CANARY = PASS**
+- **H3 General Acceptance = MAY RESUME** (解除阻塞，可以恢复单/双账号基线功能验收)
+- **H2 Resource Profiling = SUSPENDED** (保持挂起，严禁自动恢复高负载压测)
+- **Production = PENDING APPROVAL** (保持待审批，禁止自动推生产)

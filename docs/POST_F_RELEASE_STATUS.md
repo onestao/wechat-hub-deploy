@@ -1,7 +1,7 @@
 # Post-F Release Status
 
 Date: 2026-09-04
-Status: 0.1.0-rc.2 NAS CANARY SOAK PASSED — P0 HOST STABILITY RESOLVED
+Status: 0.1.0-rc.3 IMMUTABLE ARTIFACT NAS CANARY PASSED — P0 HOST STABILITY RESOLVED
 
 ## Current Incident & Blocking Status
 
@@ -80,3 +80,52 @@ Status: 0.1.0-rc.2 NAS CANARY SOAK PASSED — P0 HOST STABILITY RESOLVED
 - **H2 Resource Profiling**: Remains `SUSPENDED` (Do NOT auto-resume).
 - **Production Overlay**: Digests locked to `0.1.0-rc.2`. Do NOT auto-promote to production without operator sign-off.
 - **EasyConnect Status**: Verified restored to `Status=exited, RestartPolicy=no`.
+
+
+---
+
+## 0.1.0-rc.3 Immutable Artifact Verification & Canary Acceptance
+
+### Release & Artifact Identifiers
+- **Runtime Source Commit**: `4b76bf67bb3e2e95d9bedf25b1c3cbb53ec7cd9f` (branch `feat/multi-account-runtime`)
+- **Runtime Tests**: 50/50 PASS | Stack Tests: 10/10 PASS
+- **GitHub Actions CI Run**: `33839413173` (PASS)
+- **GitHub Actions Publish Run**: `33856493083` (PASS)
+- **Immutable Digest**: `sha256:8fced2d85176f14ee9d804b0bd0d8d88786851d868ed1cb9c846e9f672bdbe9f`
+- **OCI Revision**: `4b76bf67bb3e2e95d9bedf25b1c3cbb53ec7cd9f`
+- **Release Manifest**: `release/manifest-0.1.0-rc.3.yaml`
+
+### NAS Canary Execution Summary
+- **Target Host**: Unraid NAS (Linux 6.6, cgroup v2, Docker 27.x)
+- **Account**: Beta Single Account (`testB`), Alpha (`f-live-a`) disabled
+- **Execution Window**: 2026-09-04T17:46:45+08:00 ~ 2026-09-04T18:17:31+08:00
+- **Duration**: 1846 seconds (30 minutes 46 seconds, >= 30m30s)
+- **Samples**: 62 consecutive rounds at 30s interval
+- **Zero Hot-Patch Audit (`docker diff`)**: Clean (zero source python files modified)
+- **Final Verdict**: `P0 RC3 IMMUTABLE HOST STABILITY CANARY = PASS`
+
+### Observability & Evidence Summary Table (62 Rounds)
+
+| Metric Category | Baseline (Round 1) | Min Observation | Peak Observation | End (Round 62) | Limit / Hard Cap | Verdict |
+|---|---|---|---|---|---|---|
+| **Host Load 1m** | 2.56 | 0.62 | 2.56 | 1.08 | Safe Idle (< 4.0) | **PASS** |
+| **Host Load 5m** | 2.08 | 0.93 | 2.10 | 1.03 | Safe Idle (< 4.0) | **PASS** |
+| **Host Load 15m** | 1.49 | 1.06 | 1.56 | 1.08 | Safe Idle (< 4.0) | **PASS** |
+| **Host-wide xclip** | 0 | 0 | 0 | 0 | Strictly == 0 throughout | **PASS** |
+| **WeChat Processes** | 1 | 1 | 1 | 1 | Single real instance | **PASS** |
+| **Non-Beta Account** | 0 | 0 | 0 | 0 | Zero unauthorized accounts | **PASS** |
+| **Runtime Pids** | 52 | 52 | 53 | 52 | 200 (`pids_limit`), events max == 0 | **PASS** |
+| **AgentWechat Pids** | 155 | 155 | 158 | 155 | 256 (`PidsLimit`), events max == 0 | **PASS** |
+| **Companion Pids** | 4 | 0 | 4 | 0 (reaped) | 100 (`PidsLimit`), events max == 0 | **PASS** |
+| **Core Pids** | 5 | 4 | 5 | 4 | 100 (`pids_limit`), events max == 0 | **PASS** |
+| **Console Pids** | 4 | 2 | 4 | 3 | 100 (`pids_limit`), events max == 0 | **PASS** |
+| **Companion Lifecycle** | 1 (active R1-5) | 0 | 1 | 0 (reaped R6-62) | Reaped in <2s, 0 orphans | **PASS** |
+| **Kernel OOM** | 0 | 0 | 0 | 0 | Zero dmesg OOM | **PASS** |
+| **Ping Latency (GW)** | 0.232ms | 0.155ms | 0.537ms | 0.537ms | Median 0.31ms | **PASS** |
+
+### Release Gate Actions
+- **P0 RC3 IMMUTABLE HOST STABILITY CANARY**: **PASS**
+- **H3 General Acceptance**: Updated to `MAY RESUME`.
+- **H2 Resource Profiling**: Remains `SUSPENDED` (Do NOT auto-resume).
+- **Production Overlay**: Digests locked to `0.1.0-rc.3`. Do NOT auto-promote to production without operator sign-off.
+- **EasyConnect Status**: Verified maintained at `Status=exited, RestartPolicy=no`.
