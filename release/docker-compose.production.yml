@@ -4,7 +4,7 @@
 
 services:
   wechat-runtime:
-    image: ghcr.io/onestao/wechat-hub-runtime@sha256:a937410908e6fe1df0b06df9b9e3ef51a532fc0d56405fc3d0e0817b9a09244c
+    image: ghcr.io/onestao/wechat-hub-runtime@sha256:58ad35b9d01ebc0b2d4435978fd2a3281628228507653c83a08788b6c4b9b712
     build: !reset null
     pids_limit: 200
     environment:
@@ -43,3 +43,4 @@ services:
     image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15
     build: !reset null
     pids_limit: 100
+
