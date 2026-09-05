@@ -74,8 +74,35 @@ rollback:
 
 canary:
   target: unraid_nas_beta_single_account_full_chat
-  verdict: PENDING
-  status: NOT_STARTED
-  evidence: {}
+  date: '2026-09-05T12:20:05+08:00'
+  duration_seconds: 1285
+  duration_minutes: 21.42
+  samples: 42
+  verdict: FAIL
+  reason: STOPPED_BY_HEALTH_MONITOR_RESTART_LOOP
+  evidence:
+    target_container: wechat-agent-testb-a7c4f6c8
+    container_id: 3cad093cfe23e4d33f65fa5d7c47c77a0e281927e4d11751863c05a706714efa
+    account_id: testB
+    logged_in_user: wxid_rpfflqttdz4a22_7fcd
+    immutable_image_clean: true
+    cgroup_agent_pids_limit: 512
+    pids_baseline: 162
+    pids_min: 53
+    pids_peak: 186
+    pids_end: 186
+    pids_events_max_delta: 0
+    pthread_create_eagain_delta: 0
+    thread_constructor_fail_delta: 0
+    health_restart_delta: 29
+    memory_current_mb_end: 441.6
+    memory_peak_mb: 451.8
+    memory_limit_mb: 2048.0
+    memory_oom_count: 0
+    memory_oom_kill_count: 0
+    auth_stability_all_logged_in: true
+    account_a_quarantine_verified: true
+    account_b_reconcile_verified: true
+    data_volumes_preserved: true
   h3_status: BLOCKED
   h2_status: SUSPENDED
