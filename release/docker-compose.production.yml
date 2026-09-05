@@ -4,7 +4,7 @@
 
 services:
   wechat-runtime:
-    image: ghcr.io/onestao/wechat-hub-runtime@sha256:8fced2d85176f14ee9d804b0bd0d8d88786851d868ed1cb9c846e9f672bdbe9f
+    image: ghcr.io/onestao/wechat-hub-runtime@sha256:80490cf6a29de306887ca2a9b2218825be1d28c5eafe9cfb9f7978faa1a12e4c
     build: !reset null
     pids_limit: 200
     environment:
@@ -18,7 +18,7 @@ services:
       - SELKIES_ENABLE_BINARY_CLIPBOARD=false|locked
       - SELKIES_UI_SIDEBAR_SHOW_CLIPBOARD=false|locked
       - WECHAT_SELKIES_PIDS_LIMIT=100
-      - AGENT_WECHAT_PIDS_LIMIT=256
+      - AGENT_WECHAT_PIDS_LIMIT=512
       - WECHAT_SELKIES_IDLE_TTL_SECONDS=10
       - WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME=${WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME:-http}
       - WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST=${WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST:-}
