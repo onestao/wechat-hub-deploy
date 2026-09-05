@@ -461,7 +461,7 @@ H3 Canary、RC deploy、rollback 期间：
 1. **强制 cgroup PidsLimit 防护**
    - 任何由 WeChat Hub 编排的 container 必须配置明确的 `PidsLimit`（严禁 `<nil>` / `max`）。
    - Selkies companion container：默认 `PidsLimit = 100` (`WECHAT_SELKIES_PIDS_LIMIT`)。
-   - AgentWechat primary container：默认 `PidsLimit = 256` (`AGENT_WECHAT_PIDS_LIMIT`)。
+   - AgentWechat primary container：默认 `PidsLimit = 512` (`AGENT_WECHAT_PIDS_LIMIT`)。
    - WeChat Runtime 容器：默认 `pids_limit: 200`。
    - Core / Console / Agent / EFB 容器：默认 `pids_limit: 100`。
    - 严禁允许单 container 无限制 fork 进程拖垮 Host 内核调度队列。
