@@ -3,7 +3,7 @@ platform: linux/amd64
 created: '2026-09-06T01:35:00Z'
 
 images:
-  runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:3d0bc2cfc13a0748d08c32efc0c9040dd43a2b4080cb6a82c8bce151cca52116
+  runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:b5a0b0088ff7ff40803964d735fe110cd689c1dcfb6ea092a817204d01f85cb4
   core: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
   console: ghcr.io/onestao/wechat-hub-console@sha256:d27870c69cf964d06e09b840f984a3a8031b4863d29157aff50420f3123094a1
   agent: ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74
@@ -11,10 +11,10 @@ images:
 
 release_sources:
   runtime:
-    source_commit: 57773abe807fa49eb044bbca266c6fb30ac83f36
-    oci_revision: 57773abe807fa49eb044bbca266c6fb30ac83f36
+    source_commit: 372da75708c39989f44929da3d5f173fa3b5651c
+    oci_revision: 372da75708c39989f44929da3d5f173fa3b5651c
   agent_wechat:
-    source_commit: 3f5a0a6015f6fb9000a9d97e045c56b63ea8d18e
+    source_commit: b8193f9443d58cfd85d7b912c3db650358976a8e
     upstream_base_commit: 3b7de890eb1fd3a16cf9cf26dbe1c20e0f88a616
     upstream_base_tag: v0.11.15
 
@@ -26,16 +26,15 @@ upstream:
       commit: 3b7de890eb1fd3a16cf9cf26dbe1c20e0f88a616
     fork:
       repo: https://github.com/onestao/agent-wechat.git
-      branch: wechat-hub/0.11.15-rc5-integration
-      patch_commit: 3f5a0a6015f6fb9000a9d97e045c56b63ea8d18e
+      branch: rc5/wh3-pinned-runtime
+      patch_commit: b8193f9443d58cfd85d7b912c3db650358976a8e
       base_patch_commit: 9b8d05ed1bba31e27dfa900a270e18f73b9c8675
       hardening_commit: fc634d0737375247b7add6aaf4c79a69237dba79
     patched_image:
       image: ghcr.io/onestao/wechat-hub-agent-wechat
-      tag: 0.11.15-wh.2
-      digest: sha256:53bff2ad969beea93107f54015978f66caa9e8dac0609851870f5eeeeabb1ddd
-      image_id: sha256:fcb7651eb271eaa1d12b3a9ffa6480e27d91e90acba66f0b26b96aa8c0b3f12b
-      oci_revision: 3f5a0a6015f6fb9000a9d97e045c56b63ea8d18e
+      tag: 0.11.15-wh.3
+      digest: sha256:2e6eff3f1ad8918ce5dd028be744bf464846878b6e898ba929d498f2df458019
+      oci_revision: b8193f9443d58cfd85d7b912c3db650358976a8e
     policy: pinned
     watchtower: false
 
@@ -96,8 +95,8 @@ rollback:
 
 canary:
   target: unraid_nas_beta_single_account_full_chat
-  # Final-artifact canary (Runtime rc.5 digest + AgentWechat wh.2 digest).
-  # The earlier 32.32min PASS ran against a local wh.1 build and is recorded
+  # Final-artifact canary (Runtime rc.6 digest b5a0b008 + AgentWechat wh.3
+  # digest 2e6eff3f). The earlier 1980s PASS ran on rc.5+wh.1 and is recorded
   # in docs as functional evidence only; it does not satisfy this section.
   verdict: PENDING
   status: NOT_STARTED
