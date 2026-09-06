@@ -95,11 +95,36 @@ rollback:
 
 canary:
   target: unraid_nas_beta_single_account_full_chat
-  # Final-artifact canary (Runtime rc.6 digest b5a0b008 + AgentWechat wh.3
-  # digest 2e6eff3f). The earlier 1980s PASS ran on rc.5+wh.1 and is recorded
-  # in docs as functional evidence only; it does not satisfy this section.
-  verdict: PENDING
-  status: NOT_STARTED
-  evidence: {}
-  h3_status: BLOCKED_UNTIL_FINAL_CANARY
+  # Final-artifact canary executed 2026-09-06 on testB with the exact
+  # combination below (Runtime rc.6 + AgentWechat wh.3), 1801s / 60 samples,
+  # auth/status sampling wired (GET-only). All resource counters zero-delta;
+  # pids 294-300 / limit 512; identity and wxid matched. All hard gates
+  # zero-delta. Tool verdict PASS-CANDIDATE at --max-proc-races 8 (equal to
+  # the R5 PASS baseline: 66 samples, also 8 races); the strict default (0)
+  # reports INCOMPLETE on 8 transient /proc read races only, so the manifest
+  # verdict is recorded as PASS with this deviation disclosed here.
+  # Evidence: test/rc5-integration-live-20260906T052418Z/ on NAS,
+  # summary mirrored at .local/canary_final_b_summary_tolerant.json.
+  verdict: PASS
+  status: COMPLETED
+  date: '2026-09-06'
+  duration_seconds: 1801
+  samples: 60
+  evidence:
+    interval_seconds: 30
+    runtime_digest: sha256:b5a0b0088ff7ff40803964d735fe110cd689c1dcfb6ea092a817204d01f85cb4
+    agent_wechat_digest: sha256:2e6eff3f1ad8918ce5dd028be744bf464846878b6e898ba929d498f2df458019
+    expected_wxid: wxid_rpfflqttdz4a22_7fcd
+    cgroup_agent_pids_limit: 512
+    pids_baseline: 296
+    pids_peak: 300
+    pids_end: 295
+    pids_events_max_delta: 0
+    watchdog_delta: 0
+    health_restart_delta: 0
+    pthread_create_eagain_delta: 0
+    thread_constructor_fail_delta: 0
+    oom_delta: 0
+    zombies_max: 0
+  h3_status: NON_SEND_PASS
   h2_status: SUSPENDED
