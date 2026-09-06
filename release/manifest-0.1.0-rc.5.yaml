@@ -1,10 +1,15 @@
 release: 0.1.0-rc.5
 platform: linux/amd64
 created: '2026-09-06T01:35:00Z'
+updated: '2026-09-06T12:16:00Z'
 
 images:
   runtime: ghcr.io/onestao/wechat-hub-runtime@sha256:b5a0b0088ff7ff40803964d735fe110cd689c1dcfb6ea092a817204d01f85cb4
-  core: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
+  # RB-003 final Core artifact (Integration-RB3-Build, 2026-09-06): replaces
+  # 40dea31b (source 1b797cad) after the confirmed sync-thread death.
+  # Provenance verified: source 6f129328 == OCI revision label == registry tag
+  # digest below (verify run 34032553342).
+  core: ghcr.io/onestao/wechat-hub-core@sha256:5f63366963c6ede7e8ceb9de89c17e9c36b7044ae1b9816df70952a6d0b4fc23
   console: ghcr.io/onestao/wechat-hub-console@sha256:d27870c69cf964d06e09b840f984a3a8031b4863d29157aff50420f3123094a1
   agent: ghcr.io/onestao/wechat-hub-agent@sha256:d84d66182a84063598b6147ac1e64a098e0c5203b8f74aa472b86ddaa702df74
   efb: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:b635714873ffe2c0ad9bcfce9295545631d1e2ad301a48f7f71f0d59a5ee5e15
@@ -13,10 +18,32 @@ release_sources:
   runtime:
     source_commit: 372da75708c39989f44929da3d5f173fa3b5651c
     oci_revision: 372da75708c39989f44929da3d5f173fa3b5651c
+  core:
+    source_commit: 6f1293286d5ec348dcbdc7db014235257cbabe72
+    oci_revision: 6f1293286d5ec348dcbdc7db014235257cbabe72
   agent_wechat:
     source_commit: b8193f9443d58cfd85d7b912c3db650358976a8e
     upstream_base_commit: 3b7de890eb1fd3a16cf9cf26dbe1c20e0f88a616
     upstream_base_tag: v0.11.15
+
+# RB-003 final closure — new immutable Core artifact (Phase B only; no NAS apply).
+rb003_core_artifact:
+  image_tag: 0.1.0-rc.5-rb003
+  image: ghcr.io/onestao/wechat-hub-core@sha256:5f63366963c6ede7e8ceb9de89c17e9c36b7044ae1b9816df70952a6d0b4fc23
+  source_commit: 6f1293286d5ec348dcbdc7db014235257cbabe72
+  source_base: 1b797cad4305f9e3e3b746bbad1f9957a4f21f41
+  replaced_digest: sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
+  branch: rc5/rb003-final-core
+  patches:
+    liveness: 2f57eb9   # Flash-RB3-D, port of 27611a8
+    provenance: a4c0c22 # Flash-RB3-E, port of a00da4c
+    freshness: f0e1381  # Flash-RB3-F, port of 9d4fb2d
+    fixture_fix: 6f12932
+  tests: '84/84 OK (unittest discover core/tests) + compileall'
+  tag_preflight_run: 34032188102 # GHCR 404 = tag unused (fail-closed)
+  publish_run: 34032239949       # workflow_dispatch rc_tag=0.1.0-rc.5-rb003
+  verify_run: 34032553342        # digest + OCI revision label provenance PASS
+  canary_status: REQUIRED_BEFORE_CLOSURE # Integration-RB3-Live L7 >=1800s on this exact manifest
 
 upstream:
   agent_wechat:
@@ -95,6 +122,12 @@ rollback:
 
 canary:
   target: unraid_nas_beta_single_account_full_chat
+  # NOTE (RB-003, 2026-09-06): the PASS below was executed against the PREVIOUS
+  # Core artifact 40dea31b (source 1b797cad). images.core now points at the
+  # RB-003 final artifact sha256:5f633669 (see rb003_core_artifact section);
+  # the exact-final-artifact canary (>=1800s, with sync-freshness assertion)
+  # MUST be re-executed by Integration-RB3-Live (taskbook section 6 L7) before
+  # RB-003 closure. The historical evidence below remains immutable record.
   # Final-artifact canary executed 2026-09-06 on testB with the exact
   # combination below (Runtime rc.6 + AgentWechat wh.3), 1801s / 60 samples,
   # auth/status sampling wired (GET-only). All resource counters zero-delta;

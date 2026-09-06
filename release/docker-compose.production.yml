@@ -26,7 +26,8 @@ services:
       - WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT=${WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT:-}
 
   wechat-core:
-    image: ghcr.io/onestao/wechat-hub-core@sha256:40dea31b7b28e67e53e9f570334b488d68e3314703381dd1f59b32b22bbde453
+    # RB-003 final Core artifact (Integration-RB3-Build, 2026-09-06)
+    image: ghcr.io/onestao/wechat-hub-core@sha256:5f63366963c6ede7e8ceb9de89c17e9c36b7044ae1b9816df70952a6d0b4fc23
     build: !reset null
     pids_limit: 100
 
