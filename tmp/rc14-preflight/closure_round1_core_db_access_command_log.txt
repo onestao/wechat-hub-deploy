@@ -1,0 +1,18 @@
+# RC.14 EFB Functional Correctness — Pre-Live Control-Plane Closure
+# Host-command log for the ACTIVE-CORE production DB access gate.
+# Round outcome: STOPPED at §1 (Concurrent Workload Gate). §2–§9 were NOT executed.
+# Core was RUNNING for the whole window. No command below opens the production
+# Core DB / -wal / -shm contents.
+
+date -u '+HOST_UTC=%Y-%m-%dT%H:%M:%SZ'
+docker ps --format '{{.Names}}|{{.Image}}|{{.Status}}|{{.RunningFor}}' | sort
+ps -ef | grep -Ei 'run_v5_matrix|replay_harness|collect_v5|qual_v5|sweep|rc14' | grep -v grep
+ls -la /root/rc14-v5/repo/bench/run_v5_matrix.sh
+sed -n '1,60p' /root/rc14-v5/repo/bench/run_v5_matrix.sh
+tail -6 /root/rc14-v5/matrix.out
+tail -12 /root/rc14-v5/matrix2.out
+ls -dt /mnt/user/appdata/wechat-hub-f-live/test/rc14-agent-v5-*
+ls -la /mnt/user/appdata/wechat-hub-f-live/test/rc14-agent-v5-<TS>/
+tail -8 /mnt/user/appdata/wechat-hub-f-live/test/rc14-agent-v5-<TS>/matrix.log
+ls -la /mnt/user/appdata/wechat-hub-f-live/test/rc14-agent-v5-<TS>/matrix.done
+sed -n '60,200p' /root/rc14-v5/repo/bench/run_v5_matrix.sh
