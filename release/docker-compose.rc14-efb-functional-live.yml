@@ -1,0 +1,45 @@
+# RC.14 EFB Functional Correctness — FINAL FUNCTIONAL LIVE OVERLAY
+#
+# Candidate (authoritative, frozen):
+#   SOURCE_COMMIT = 91a69cef323d120f0e32196917a630d2cf3baa88
+#   IMAGE_DIGEST  = sha256:d45029d586b9224c92a1097191f0add81e793ff826e7ca2e5e91eef077456241
+#   OCI_REVISION  = 91a69cef323d120f0e32196917a630d2cf3baa88
+#
+# Scope contract:
+#   * Defines EXACTLY ONE service: `efb-multi`. It does NOT define, override or
+#     recreate `runtime`, `core`, `console`, `wechat-agent` or any AgentWechat bridge.
+#   * The image is pinned by immutable digest. Mutable tags are forbidden.
+#   * No host port is published; EFB reaches Core over the existing project network.
+#   * `restart: "no"` — qualification must never form an automatic restart loop.
+#
+# Production identity (carried by the mounted profile, NOT by this file):
+#   consumer_id = efb-linux-wechat:wechat.linux   (channel id `wechat.linux`
+#                                                   under consumer `efb-linux-wechat`)
+#   account     = f-live-a
+#   The profile under /mnt/user/appdata/wechat-hub-f-live/efb-profile is the existing
+#   production profile. It is mounted read-write because EFB must persist its cursor,
+#   effect ledger and message mapping. This overlay must NOT modify profile contents.
+#
+# Usage (operator only; NOT executed by the pre-live closure):
+#   cd /mnt/user/appdata/wechat-hub-f-live
+#   docker compose -f docker-compose.yml -f <path-to-this-file> up -d --no-deps efb-multi
+#
+# Teardown:
+#   docker compose -f docker-compose.yml -f <path-to-this-file> stop efb-multi
+#   docker compose -f docker-compose.yml -f <path-to-this-file> rm -f efb-multi
+#   (never touch checkpoint, effect ledger, mapping DB or profile)
+
+services:
+  efb-multi:
+    # Immutable RC.14 functional artifact. Do NOT substitute a tag or an older pin.
+    image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave@sha256:d45029d586b9224c92a1097191f0add81e793ff826e7ca2e5e91eef077456241
+    container_name: wechat-hub-f-live-efb
+    # Controlled restart policy: a failing process must stay stopped and be inspected.
+    restart: "no"
+    pids_limit: 100
+    volumes:
+      # Existing production EFB profile: cursor, effect ledger, message mapping,
+      # telegram config and master/slave channel wiring all live here.
+      - /mnt/user/appdata/wechat-hub-f-live/efb-profile:/root/.ehforwarderbot
+    networks:
+      - internal
