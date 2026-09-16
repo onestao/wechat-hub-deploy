@@ -144,10 +144,10 @@ def _instrument(channel: Any, marks: dict) -> None:
 
 
 def main() -> int:
+    global MARKS
     parser = argparse.ArgumentParser()
     parser.add_argument("--marks", default=MARKS)
     known, rest = parser.parse_known_args()
-    global MARKS
     MARKS = str(known.marks)
 
     module = _load_frozen_probe()
