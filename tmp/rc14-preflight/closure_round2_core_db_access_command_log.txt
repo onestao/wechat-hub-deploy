@@ -1,0 +1,64 @@
+# RC.14 EFB Functional Correctness — Pre-Live Control-Plane Closure (resumed round)
+# Host-command log for the ACTIVE-CORE production DB access gate.
+# Core was RUNNING for the whole window. No command below opens the production
+# Core DB / -wal / -shm contents. Core was read through the HTTP API only.
+
+date -u '+HOST_UTC=%Y-%m-%dT%H:%M:%SZ'
+ps -ef | grep -Ei 'run_v5_matrix|replay_harness|collect_v5|qual_v5' | grep -v grep
+docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}' | grep -Ei 'v5-|bench'
+ls -dt /mnt/user/appdata/wechat-hub-f-live/test/rc14-agent-v5-*
+docker ps --format '{{.Names}}|{{.Image}}|{{.Status}}' | sort
+ls -la <sweep-root>/matrix.done
+tail -3 <sweep-root>/matrix.log
+
+curl -s -m 10 http://127.0.0.1:18082/health
+curl -s -m 10 'http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=wechat-agent'
+curl -s -m 10 'http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=efb-linux-wechat%3Awechat.linux'
+curl -s -m 10 'http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=efb-linux-wechat'
+curl -s -m 10 'http://127.0.0.1:18082/v1/events/poll?after=999999&limit=1'
+
+rm -f /tmp/ov.b64 /tmp/ov.gz /tmp/ov.yml
+printf '%s' '<base64 chunk 0 of 7>' > /tmp/ov.b64
+printf '%s' '<base64 chunk 1 of 7>' >> /tmp/ov.b64
+printf '%s' '<base64 chunk 2 of 7>' >> /tmp/ov.b64
+printf '%s' '<base64 chunk 3 of 7>' >> /tmp/ov.b64
+printf '%s' '<base64 chunk 4 of 7>' >> /tmp/ov.b64
+printf '%s' '<base64 chunk 5 of 7>' >> /tmp/ov.b64
+printf '%s' '<base64 chunk 6 of 7>' >> /tmp/ov.b64
+tail -c 250 /tmp/ov.b64 | md5sum
+base64 -d /tmp/ov.b64 > /tmp/ov.gz
+gzip -dc /tmp/ov.gz > /tmp/ov.yml
+sha256sum /tmp/ov.yml
+docker compose version
+
+cd /mnt/user/appdata/wechat-hub-f-live
+docker compose -f docker-compose.yml config > /tmp/base.yml
+docker compose -f docker-compose.yml -f /tmp/ov.yml config > /tmp/merged.yml
+grep -n 'efb-linux-wechat-slave@sha256' /tmp/merged.yml
+grep -c 'efb-linux-wechat-slave@sha256:d45029d586b9224c92a1097191f0add81e793ff826e7ca2e5e91eef077456241' /tmp/merged.yml
+awk '/^  [a-z0-9_-]+:$/{s=$1} /efb-linux-wechat-slave@sha256/{print s}' /tmp/merged.yml | sort -u
+for s in console core runtime; do awk -v s="$s" '$0=="  "s":"{f=1;print;next} f&&/^  [a-z0-9_-]+:$/{exit} f{print}' /tmp/base.yml > /tmp/b_$s.txt; done
+for s in console core runtime; do awk -v s="$s" '$0=="  "s":"{f=1;print;next} f&&/^  [a-z0-9_-]+:$/{exit} f{print}' /tmp/merged.yml > /tmp/m_$s.txt; done
+diff -q /tmp/b_console.txt /tmp/m_console.txt
+diff -q /tmp/b_core.txt /tmp/m_core.txt
+diff -q /tmp/b_runtime.txt /tmp/m_runtime.txt
+grep -n 'published:' /tmp/base.yml
+grep -n 'published:' /tmp/merged.yml
+awk '/^  efb-multi:/{f=1;next} f&&/^  [a-z0-9_-]+:$/{exit} f' /tmp/merged.yml | grep -cE 'ports:|published:'
+awk '/^  core:/{f=1;next} f&&/^  [a-z0-9_-]+:$/{exit} f' /tmp/merged.yml | grep -nA3 '^    networks:'
+grep -n 'name: wechat-hub-f-live-internal' /tmp/merged.yml
+
+for c in wechat-hub-f-live-core wechat-hub-f-live-console wechat-hub-f-live-runtime wechat-agent-f-live-a-faf35abb wechat-agent-testb-a7c4f6c8 wechat-hub-f-live-agent wechat-hub-f-live-efb; do docker inspect $c --format '{{.Name}}|{{.State.Status}}|{{.State.ExitCode}}|{{.RestartCount}}|{{.Config.Image}}|{{.Image}}|{{.Created}}|{{.HostConfig.RestartPolicy.Name}}'; done
+docker inspect wechat-hub-f-live-core --format '{{.State.Health.Status}}'
+docker inspect wechat-hub-f-live-console --format '{{.State.Health.Status}}'
+docker inspect wechat-hub-f-live-runtime --format '{{.State.Health.Status}}'
+docker inspect wechat-hub-f-live-efb --format '{{.HostConfig.NetworkMode}}|{{.Config.Entrypoint}}|{{.Config.Cmd}}|{{.HostConfig.PidsLimit}}'
+
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml.pre_live_snap
+sha256sum /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml.pre_live_snap
+stat -c '%n | mode=%a | %U:%G | %s' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/blueset.telegram/config.yaml
+grep '^master_channel:' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml
+
+rm -f /tmp/ov.b64 /tmp/ov.gz /tmp/ov.yml /tmp/base.yml /tmp/merged.yml /tmp/base.err /tmp/merged.err /tmp/b_console.txt /tmp/b_core.txt /tmp/b_runtime.txt /tmp/m_console.txt /tmp/m_core.txt /tmp/m_runtime.txt
+ls -A /dev/shm | wc -l
