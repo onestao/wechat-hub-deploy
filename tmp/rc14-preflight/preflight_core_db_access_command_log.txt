@@ -1,0 +1,46 @@
+# RC.14 EFB Functional Correctness — Final Production Preflight
+# Host-command log for the ACTIVE-CORE production DB access gate.
+# Scope: every command executed on unraid (192.168.22.102) during this preflight.
+# Core was RUNNING for the whole window. No command below opens the production
+# Core DB / -wal / -shm contents.
+
+ls -la /mnt/user/appdata/wechat-hub-f-live/agent-data/
+docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}|{{.ID}}' | grep -Ei 'wechat|core|console|runtime|efb' | sort
+docker inspect v5-C1-run1 --format '{{.Name}}|{{.Config.Image}}|{{.State.Status}}|{{.State.StartedAt}}|{{.RestartCount}}|{{.HostConfig.RestartPolicy.Name}}|{{.Config.Cmd}}'
+docker logs --tail 15 v5-C1-run1
+docker ps --format '{{.Names}}|{{.Status}}|{{.RunningFor}}' | grep -Ei 'v5-|rc14|bench'
+ps -ef | grep -E 'v5_|sweep|replay_harness' | grep -v grep
+for c in wechat-hub-f-live-core wechat-hub-f-live-console wechat-hub-f-live-runtime; do docker inspect $c --format '{{.Name}}|{{.State.Status}}|{{.State.Health.Status}}|{{.RestartCount}}|{{.Config.Image}}|{{.Image}}|{{.State.ExitCode}}|{{.HostConfig.RestartPolicy.Name}}'; done
+for c in wechat-hub-f-live-agent wechat-hub-f-live-efb wechat-agent-f-live-a-faf35abb wechat-agent-testb-a7c4f6c8; do docker inspect $c --format '{{.Name}}|{{.State.Status}}|{{.RestartCount}}|{{.Config.Image}}|{{.Image}}|{{.State.ExitCode}}|{{.State.FinishedAt}}|{{.HostConfig.RestartPolicy.Name}}'; done
+find /mnt/user/appdata/wechat-hub-f-live/efb-profile -maxdepth 4 -printf '%y|%10s|%TY-%Tm-%TdT%TH:%TM|%p\n' | sort -k4
+stat -c '%n | size=%s | mtime=%y | ctime=%z' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/core-effect-ledger.sqlite3
+stat -c '%n | size=%s | mtime=%y | ctime=%z' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/core-effect-ledger.sqlite3-wal
+stat -c '%n | size=%s | mtime=%y | ctime=%z' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/core-effect-ledger.sqlite3-shm
+fuser -v /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/core-effect-ledger.sqlite3
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/config.yaml.pre_live_snap
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/config.yaml
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/core-event-cursor.json
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/efb_master_heartbeat.json
+cat /mnt/user/appdata/wechat-hub-f-live/efb-profile/efb_live_stats.json
+stat -c '%n | mode=%a | owner=%U:%G | size=%s | mtime=%y' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/blueset.telegram/config.yaml
+sed -e 's/\(token: *\).*/\1<REDACTED>/' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/blueset.telegram/config.yaml
+grep -n 'admins' /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/blueset.telegram/config.yaml
+curl -s -m 10 http://127.0.0.1:18082/health
+curl -s -m 10 http://127.0.0.1:18082/v1/accounts
+curl -s -m 15 'http://127.0.0.1:18082/v1/events/poll?after=273403&limit=200'
+curl -s -m 15 'http://127.0.0.1:18082/v1/events/poll?after=273404&limit=1'
+curl -s -m 15 'http://127.0.0.1:18082/v1/events/poll?after=280000&limit=1'
+rm -f /dev/shm/ledger-probe.sqlite /dev/shm/ledger-probe.sqlite-wal /dev/shm/ledger-probe.sqlite-shm
+cp -f /mnt/user/appdata/wechat-hub-f-live/efb-profile/profiles/default/wechat.linux/core-effect-ledger.sqlite3 /dev/shm/ledger-probe.sqlite
+sqlite3 -readonly /dev/shm/ledger-probe.sqlite 'PRAGMA user_version; PRAGMA quick_check; PRAGMA journal_mode; PRAGMA integrity_check;'
+sqlite3 -readonly /dev/shm/ledger-probe.sqlite '.schema'
+sqlite3 -readonly /dev/shm/ledger-probe.sqlite 'select status, count(*) from effect_ledger group by status;'
+ls -la /dev/shm/
+
+# ---------------------------------------------------------------------------
+# EFB-agent-local SQLite (NOT part of the protected production-Core set):
+#   /mnt/user/appdata/wechat-hub-f-live/agent-data/wechat-agent.sqlite
+# Read while the agent container was STOPPED, read-only, no sidecar creation.
+sqlite3 -readonly /mnt/user/appdata/wechat-hub-f-live/agent-data/wechat-agent.sqlite "select name from sqlite_master where type='table' order by name;"
+sqlite3 -readonly /mnt/user/appdata/wechat-hub-f-live/agent-data/wechat-agent.sqlite "select key, substr(value,1,120) from agent_meta order by key;"
