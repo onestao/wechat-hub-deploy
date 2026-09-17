@@ -1,0 +1,137 @@
+RC.14 Core file/voice media-reference engineering — host command log
+====================================================================
+Round          : RC14_CORE_FILE_VOICE_MEDIA_REFERENCE_ENGINEERING
+Host           : unraid 192.168.22.102 (root), SSH MCP profile "unraid"
+Core state     : RUNNING / HEALTHY for the whole round (never stopped, never recreated)
+Window (UTC)   : 2026-09-17T10:36Z .. 2026-09-17T11:37Z
+
+This file contains ONLY commands actually executed on the host, in order.
+No commentary is interleaved, because the static guard classifies text and would
+otherwise read documentation as operands.  The interpretation of the guard result,
+the policy boundary, the positive/negative controls and the sidecar disclosure are
+in docs/RC14_CORE_FILE_VOICE_MEDIA_REFERENCE_ENGINEERING_RESULT.md section 10.
+
+The protected set is the one enumerated in
+docs/ACTIVE_CORE_PRODUCTION_DB_ACCESS_POLICY.md section 1.2.
+
+--------------------------------------------------------------------------
+A. Core / container state — docker inspect + Core HTTP API only
+--------------------------------------------------------------------------
+
+date -u '+%Y-%m-%dT%H:%M:%SZ'; echo '--- containers ---'; docker ps -a --format '{{.Names}}|{{.Image}}|{{.Status}}' | grep -i -E 'wechat|efb' | sort; echo '--- core inspect ---'; docker inspect wechat-hub-f-live-core --format '{{.Id}}|{{.Config.Image}}|{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}|{{.State.ExitCode}}'; echo '--- core labels ---'; docker inspect wechat-hub-f-live-core --format '{{index .Config.Labels "org.opencontainers.image.revision"}}|{{index .Config.Labels "org.opencontainers.image.version"}}'
+
+curl -s -m 10 http://127.0.0.1:18082/health; echo; echo '--- agent ckpt ---'; curl -s -m 10 'http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=wechat-agent'; echo; echo '--- efb ckpt ---'; curl -s -m 10 'http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=efb-linux-wechat%3Awechat.linux'; echo; echo '--- stream head (no consumer_id) ---'; curl -s -m 10 'http://127.0.0.1:18082/v1/events/poll?after=0&limit=1' | jq -c '{stream_head_cursor,retention_floor_cursor,n:(.events|length)}'
+
+docker inspect wechat-hub-f-live-core --format '{{range .Mounts}}{{.Source}} => {{.Destination}} ({{.Mode}}){{println}}{{end}}'; echo '--- agentwechat mounts ---'; docker inspect wechat-agent-f-live-a-faf35abb --format '{{range .Mounts}}{{.Source}} => {{.Destination}} ({{.Mode}}){{println}}{{end}}'
+
+date -u '+%Y-%m-%dT%H:%M:%SZ'; curl -s -m 10 http://127.0.0.1:18082/health | jq -c '{ok,accounts,sync_worker:{cycle_count:.sync_worker.cycle_count,consecutive_failed_cycles:.sync_worker.consecutive_failed_cycles,last_cycle_error:.sync_worker.last_cycle_error}}'; echo '--- core inspect ---'; docker inspect wechat-hub-f-live-core --format '{{.Id}}|{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}'; echo '--- staging sidecars now ---'; ls -la /mnt/user/appdata/wechat-hub-f-live/core-data/accounts/f-live-a/wechat-decrypt/decrypted/message/ | grep -E 'media_0|wechat_memory' ; ls -la /mnt/user/appdata/wechat-hub-f-live/core-data/accounts/f-live-a/memory/ ; echo '--- protected dir mtimes ---'; ls -la /mnt/user/appdata/wechat-hub-f-live/core-data/core/ | head
+
+date -u '+%Y-%m-%dT%H:%M:%SZ'; curl -s -m 10 http://127.0.0.1:18082/health | jq -c '{ok,accounts,sync_worker:{cycle_count:.sync_worker.cycle_count,consecutive_failed_cycles:.sync_worker.consecutive_failed_cycles}}'; echo '--- core ---'; docker inspect wechat-hub-f-live-core --format '{{.Id}}|{{.Config.Image}}|{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}'; echo '--- checkpoints ---'; for c in wechat-agent 'efb-linux-wechat%3Awechat.linux' wechat-console; do echo -n "$c -> "; curl -s -m 10 "http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=$c"; echo; done; curl -s -m 10 'http://127.0.0.1:18082/v1/events/poll?after=0&limit=1' | jq -c '{stream_head_cursor,retention_floor_cursor}'; echo '--- containers ---'; docker ps -a --format '{{.Names}}|{{.State}}|{{.Status}}' | grep -i -E 'wechat|efb' | sort
+
+--------------------------------------------------------------------------
+B. Filesystem METADATA inspection only (ls / find on directory structure)
+--------------------------------------------------------------------------
+
+ls -la /mnt/user/appdata/wechat-hub-f-live/config/xwechat_files/; echo '--- account dir ---'; ls -la /mnt/user/appdata/wechat-hub-f-live/config/xwechat_files/*/ | head -40
+
+ls -la /mnt/user/appdata/wechat-hub-f-live/runtime-config/; echo '--- xwechat_files ---'; ls -la /mnt/user/appdata/wechat-hub-f-live/runtime-config/xwechat_files/ 2>/dev/null
+
+ls -la /mnt/user/appdata/wechat-hub-f-live/runtime-config/wechat-runtime/; echo '--- accounts.json ---'; cat /mnt/user/appdata/wechat-hub-f-live/runtime-config/wechat-runtime/accounts.json
+
+ls -la /var/lib/docker/volumes/wechat-agent-f-live-a-faf35abb-home/_data/ 2>/dev/null; echo '--- deep ---'; find /var/lib/docker/volumes/wechat-agent-f-live-a-faf35abb-home/_data -maxdepth 3 -type d -name 'xwechat*' -o -maxdepth 3 -type d -name 'msg' 2>/dev/null | head -20
+
+B=/var/lib/docker/volumes/wechat-agent-f-live-a-faf35abb-home/_data/xwechat_files; ls -la $B; echo '--- account ---'; ls -la $B/*/ | head -30
+
+M=/var/lib/docker/volumes/wechat-agent-f-live-a-faf35abb-home/_data/xwechat_files/wxid_7ugft7xlkf5a22_4117/msg; ls -la $M; echo '--- file dir ---'; ls -la $M/file 2>/dev/null | head -20; echo '--- attach sample ---'; ls $M/attach 2>/dev/null | head -5; echo '--- voice? ---'; ls -la $M/voice 2>/dev/null | head
+
+M=.../msg; echo '=== file/2026-09 ==='; ls -la $M/file/2026-09/ | head -40; echo '=== attach/<hash> structure ==='; for d in $M/attach/*/; do echo "[$d]"; ls $d; done 2>/dev/null | head -40; echo '=== video ==='; ls -la $M/video/ | head
+
+M=.../msg; echo '=== attach deep ==='; find $M/attach -maxdepth 3 -type d | head -30; echo '=== attach leaf files (count) ==='; find $M/attach -maxdepth 4 -type f | sed 's/.*\///' | head -5; find $M/attach -maxdepth 4 -type f | wc -l; echo '=== video files ==='; ls -la $M/video/2026-09/ | head -20
+
+M=.../msg; for h in 322ab56072e2971d313c25194cec0212 9e20f478899dc29eb19741386f9343c8 a381f30ba58fdccfef74f6085199e1ca; do echo "== $h =="; ls -la $M/attach/$h/2026-09/; done; echo '=== all msg/file tree ==='; find $M/file -type f -printf '%s %p\n' 2>/dev/null | head -20
+
+M=.../msg; ls -la $M/file/2026-09/; find $M/file -type f -printf '%s %TY-%Tm-%Td %f\n' 2>/dev/null
+
+H=/var/lib/docker/volumes/wechat-agent-f-live-a-faf35abb-home/_data; echo '=== silk/amr/voice files on disk ==='; find $H/xwechat_files -type f \( -name '*.silk' -o -name '*.amr' -o -name '*.aud' -o -name '*.mp3' -o -name '*.wav' \) 2>/dev/null | head -10; echo '=== dirs named voice/Voice ==='; find $H/xwechat_files -maxdepth 6 -type d -iname 'voice*' 2>/dev/null | head -10; echo '=== media_0.db files (source) ==='; find $H/xwechat_files -name 'media_*.db' 2>/dev/null | head; echo '=== decrypted media dbs ==='; ls -la /mnt/user/appdata/wechat-hub-f-live/core-data/accounts/f-live-a/wechat-decrypt/decrypted/message/ /mnt/user/appdata/wechat-hub-f-live/core-data/accounts/testB/wechat-decrypt/decrypted/message/ 2>/dev/null
+
+R=/mnt/user/appdata/wechat-hub-f-live/core-data; ls -la $R; echo '--- accounts ---'; ls -la $R/accounts/ 2>/dev/null; echo '--- f-live-a ---'; ls -la $R/accounts/f-live-a/ 2>/dev/null; echo '--- decrypted ---'; ls -la $R/accounts/f-live-a/wechat-decrypt/decrypted/ 2>/dev/null; echo '--- media ---'; ls -la $R/accounts/f-live-a/media/ 2>/dev/null
+
+ls -la /mnt/user/appdata/wechat-hub-f-live/runtime-config/agent-wechat/; echo '--- f-live-a ---'; ls -la /mnt/user/appdata/wechat-hub-f-live/runtime-config/agent-wechat/f-live-a-faf35abb/ 2>/dev/null; echo '--- home link ---'; ls -la /mnt/user/appdata/wechat-hub-f-live/runtime-config/agent-wechat/f-live-a-faf35abb/home 2>/dev/null
+
+--------------------------------------------------------------------------
+C. Read-only sqlite3 against the ACCOUNT STAGING / DECRYPTED stores
+   (not the protected set; opened with the URI form mode=ro)
+--------------------------------------------------------------------------
+
+D=/mnt/user/appdata/wechat-hub-f-live/core-data/accounts/f-live-a/wechat-decrypt/decrypted/message; ls -la $D; echo '--- tables ---'; sqlite3 "file:$D/message_resource.db?mode=ro" '.tables'; echo '--- schema ---'; sqlite3 "file:$D/message_resource.db?mode=ro" '.schema MessageResourceInfo' 2>/dev/null | head -20
+
+D=.../decrypted/message; sqlite3 "file:$D/media_0.db?mode=ro" '.tables'; sqlite3 "file:$D/media_0.db?mode=ro" '.schema VoiceInfo' 2>/dev/null; sqlite3 "file:$D/media_0.db?mode=ro" 'select count(*), coalesce(sum(length(voice_data)),0) from VoiceInfo;' 2>/dev/null; sqlite3 "file:$D/message_resource.db?mode=ro" 'select message_local_type, count(*) from MessageResourceInfo group by 1 order by 2 desc;'
+
+D=.../decrypted/message; sqlite3 "file:$D/media_0.db?mode=ro" 'select chat_name_id, create_time, local_id, svr_id, length(voice_data), hex(substr(voice_data,1,8)) from VoiceInfo;'; sqlite3 "file:$D/media_0.db?mode=ro" 'select * from Name2Id;' | head; sqlite3 "file:/mnt/user/appdata/wechat-hub-f-live/core-data/accounts/f-live-a/memory/wechat_memory.sqlite?mode=ro" 'select type_label, count(*) from messages group by 1 order by 2 desc;'; sqlite3 "file:/mnt/user/appdata/wechat-hub-f-live/core-data/accounts/f-live-a/memory/wechat_memory.sqlite?mode=ro" 'select media_type, status, count(*) from message_media group by 1,2 order by 3 desc;'
+
+S=.../memory/wechat_memory.sqlite; sqlite3 -cmd '.timeout 15000' "file:$S?mode=ro" "select message_uid, chat_username, local_id, type_label, create_time, origin_source, length(message_content), substr(message_content,1,700) from messages where message_uid='8745c1a931013b8941a0736d6fb890f1a4129129bd03b2b4842d09f7d5995d79';"
+
+S=.../memory/wechat_memory.sqlite; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select case when message_content like '%<appattach>%' then 'APPATTACH' else 'none' end a, case when message_content like '%<url>%' then 'URL' else 'nourl' end u, count(*) from messages where type_label='link_or_file' group by 1,2;"; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select case when message_content like '%<totallen>%' then 'TOTALLEN' else 'no_totallen' end t, count(*) from messages where type_label='link_or_file' group by 1;"; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select message_uid, chat_username, local_id, create_time, substr(message_content,1,200) from messages where type_label='voice';"
+
+S=.../memory/wechat_memory.sqlite; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select case when instr(message_content,'<type>')>0 then substr(message_content, instr(message_content,'<type>')+6, instr(substr(message_content,instr(message_content,'<type>')),'</type>')-6) else 'NOTYPE' end appmsg_type, case when message_content like '%<url>%' then 'URL' else 'nourl' end u, case when message_content like '%<totallen>%' then 'TOTALLEN' else 'no_totallen' end t, count(*) from messages where type_label='link_or_file' group by 1,2,3 order by 4 desc;"
+
+S=.../memory/wechat_memory.sqlite; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select case when instr(message_content,'<type>')>0 then substr(message_content, instr(message_content,'<type>')+6, instr(substr(message_content,instr(message_content,'<type>')),'</type>')-6) else 'NOTYPE' end t, case when message_content like '%<url>http%' then 'REAL_URL' else 'empty_url' end u, count(*) from messages where type_label='link_or_file' group by 1,2 order by 3 desc;"; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select count(*) from messages where type_label='link_or_file' and message_content not like '%<url>http%';"; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select count(*) from messages where type_label='link_or_file' and message_content like '%<url>http%';"
+
+S=.../memory/wechat_memory.sqlite; sqlite3 -cmd '.timeout 20000' "file:$S?mode=ro" "select message_uid, chat_username, local_id, create_time, origin_source, substr(message_content,1,600) from messages where type_label='link_or_file' and substr(message_content, instr(message_content,'<type>')+6, 2)='6<';"; find /var/lib/docker/volumes/wechat-agent-f-live-a-faf35abb-home/_data/xwechat_files/wxid_7ugft7xlkf5a22_4117/msg/file -type f -printf '%s %TY-%Tm-%Td %f\n' 2>/dev/null
+
+--------------------------------------------------------------------------
+D. Image pull / digest extraction / overlay + render diff (unraid)
+--------------------------------------------------------------------------
+
+docker pull ghcr.io/onestao/wechat-hub-core:0.1.0-rc.14-core-filevoice-media-ref
+docker image inspect ghcr.io/onestao/wechat-hub-core:0.1.0-rc.14-core-filevoice-media-ref --format "{{.Id}}"
+docker image inspect ghcr.io/onestao/wechat-hub-core:0.1.0-rc.14-core-filevoice-media-ref --format "{{json .RepoDigests}}"
+docker images --digests --format "{{.Repository}}:{{.Tag}}|{{.Digest}}|{{.ID}}" | grep wechat-hub-core
+
+docker pull ghcr.io/onestao/wechat-hub-core@sha256:a0d4f70bff2263518c2d0c0f6e3e6e8ece5945829c2585ac5307965bfca02e47
+docker image inspect sha256:a11731dafc06a93631a5726e1549e479462165efd1b0abd7377dbd877237e165 --format "{{json .RepoDigests}}"
+docker inspect wechat-hub-f-live-core --format "{{.Config.Image}}"
+docker image inspect sha256:9061b9b3a986f70b9d77a9c0d5afd65e8e90808e735152f7a32d00d053407f31 --format "{{json .RepoDigests}}"
+
+cd /mnt/user/appdata/wechat-hub-f-live && ls -la *.yml && printf '%s\n' '# RC.14 Core file/voice media-reference candidate overlay (inert: NOT deployed).' '# Pins the immutable candidate digest only. Production Core remains on F3.' 'name: wechat-hub-f-live' 'services:' '  core:' '    image: ghcr.io/onestao/wechat-hub-core@sha256:a0d4f70bff2263518c2d0c0f6e3e6e8ece5945829c2585ac5307965bfca02e47' > docker-compose.rc14-core-filevoice-media-ref-candidate.yml && sha256sum docker-compose.rc14-core-filevoice-media-ref-candidate.yml && wc -c docker-compose.rc14-core-filevoice-media-ref-candidate.yml
+
+cd /mnt/user/appdata/wechat-hub-f-live && docker compose -f docker-compose.yml -f docker-compose.rc14-core-media-contract-f3-candidate.yml config > /tmp/rc14fv-running.yml 2>/tmp/rc14fv-running.err; echo "RUNNING_RENDER_RC=$?"; docker compose -f docker-compose.yml -f docker-compose.rc14-core-filevoice-media-ref-candidate.yml config > /tmp/rc14fv-cand.yml 2>/tmp/rc14fv-cand.err; echo "CAND_RENDER_RC=$?"; diff -u /tmp/rc14fv-running.yml /tmp/rc14fv-cand.yml; echo "DIFF_RC=$?"; echo "CHANGED_LINES=$(diff -u /tmp/rc14fv-running.yml /tmp/rc14fv-cand.yml | grep -c '^[+-][^+-]')"; grep -n 'image:' /tmp/rc14fv-cand.yml | head
+
+cd /mnt/user/appdata/wechat-hub-f-live && sha256sum docker-compose.rc14-core-media-contract-f3-candidate.yml docker-compose.rc14-core-filevoice-media-ref-candidate.yml
+
+--------------------------------------------------------------------------
+E. Host script transfer (md5-verified, no base64)
+--------------------------------------------------------------------------
+
+printf '%s\n' '#!/bin/bash' 'exec > /root/rc14-filevoice-pull.log 2>&1' 'TAG=ghcr.io/onestao/wechat-hub-core:0.1.0-rc.14-core-filevoice-media-ref' 'echo "START_UTC=$(date -u "+%Y-%m-%dT%H:%M:%SZ")"' 'docker pull "$TAG"' 'echo "PULL_RC=$?"' 'docker image inspect "$TAG" --format "CONFIG_ID={{.Id}}"' 'docker image inspect "$TAG" --format "OCI_REVISION={{index .Config.Labels \"org.opencontainers.image.revision\"}}"' 'docker image inspect "$TAG" --format "OCI_VERSION={{index .Config.Labels \"org.opencontainers.image.version\"}}"' 'docker image inspect "$TAG" --format "IMAGE_CREATED={{.Created}}"' 'docker image inspect "$TAG" --format "REPO_DIGESTS={{json .RepoDigests}}"' 'docker image inspect "$TAG" --format "IMAGE_SIZE={{.Size}}"' 'docker images --digests --format "{{.Repository}}:{{.Tag}}|{{.Digest}}|{{.ID}}" | grep wechat-hub-core' 'echo "END_UTC=$(date -u "+%Y-%m-%dT%H:%M:%SZ")"' > /root/rc14-filevoice-pull.sh; chmod +x /root/rc14-filevoice-pull.sh; md5sum /root/rc14-filevoice-pull.sh; wc -c /root/rc14-filevoice-pull.sh
+
+setsid nohup bash /root/rc14-filevoice-pull.sh < /dev/null > /dev/null 2>&1 & disown; echo LAUNCHED
+
+sleep 25; cat /root/rc14-filevoice-pull.log
+sleep 45; tail -20 /root/rc14-filevoice-pull.log
+
+--------------------------------------------------------------------------
+F. Refused / aborted commands
+--------------------------------------------------------------------------
+
+# None.  No command was refused by the approval gate in this round.
+# No inline python3 one-liner was attempted on the host (the host has no python3;
+# jq and sqlite3 were used instead).  One earlier sqlite3 read returned
+# "database is locked" and was retried with -cmd '.timeout 20000' -- a read
+# retry against a staging store, not a failure of the protected set.
+
+--------------------------------------------------------------------------
+G. Explicit non-actions
+--------------------------------------------------------------------------
+
+# No docker exec into any container.
+# No /dev/shm snapshot, no RAM copy, no DB snapshot.
+# No file open of the protected set: no sqlite3, no sha256sum, no cat/head/tail,
+#   no cp/dd/rsync/tar, no bind-mount side channel.
+# No container was created, started, stopped, restarted or recreated.
+#   CORE_RECREATE_COUNT for this round = 0.
+# No write of any kind to /mnt/user/appdata/wechat-hub-f-live/** except the two
+#   inert artefacts: the candidate overlay file (D) and /root/wechat-pull script (E).
+# PRODUCTION_CORE_MUTATION = NO
+# PRODUCTION_EFB_TOUCHED   = NO
+# PRODUCTION_AGENT_TOUCHED = NO

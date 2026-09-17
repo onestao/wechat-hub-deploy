@@ -1,0 +1,6 @@
+# RC.14 Core file/voice media-reference candidate overlay (inert: NOT deployed).
+# Pins the immutable candidate digest only. Production Core remains on F3.
+name: wechat-hub-f-live
+services:
+  core:
+    image: ghcr.io/onestao/wechat-hub-core@sha256:a0d4f70bff2263518c2d0c0f6e3e6e8ece5945829c2585ac5307965bfca02e47

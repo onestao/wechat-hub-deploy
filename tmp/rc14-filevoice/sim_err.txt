@@ -1,0 +1,1 @@
+Media effect account-1:file-1 failed permanently: media retry exhausted after 2 attempt(s)

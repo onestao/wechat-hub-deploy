@@ -1,0 +1,40 @@
+{
+  "efb_source": "69a1f58e29177634b6790ed3b5ec688871ba590c",
+  "cases": {
+    "EFB_FILE_MEDIA_CONTRACT_COMPATIBLE": {
+      "verdict": "PASS",
+      "effect_status": "DELIVERED",
+      "deliveries": 1,
+      "delivered_bytes": "ORIGINAL-BYTES",
+      "media_calls": 1,
+      "raised": false,
+      "was_media_pending_error": false
+    },
+    "EFB_VOICE_MEDIA_CONTRACT_COMPATIBLE": {
+      "verdict": "PASS",
+      "effect_status": "DELIVERED",
+      "deliveries": 1,
+      "delivered_bytes": "ORIGINAL-BYTES",
+      "media_calls": 1,
+      "raised": false,
+      "was_media_pending_error": false
+    },
+    "PRE_FIX_CONTROL_FAILS_CLOSED": {
+      "verdict": "PASS",
+      "pending_status": "PENDING_MEDIA",
+      "terminal_status": "MEDIA_FAILED",
+      "deliveries": 0,
+      "exception": ""
+    },
+    "SEALED_274307_CLASSIFICATION": {
+      "verdict": "PASS",
+      "classification": "FIRST_BUSINESS_EFFECT",
+      "classification_via_cursor_floor": "FIRST_BUSINESS_EFFECT",
+      "origin": "created_at:created_at=2026-09-17T08:41:14+00:00",
+      "reason": "",
+      "274307_CLASSIFIED_AS_NEW_BUSINESS": "YES",
+      "274307_DUPLICATE": "NO",
+      "known_effect_requires_durable_effect_identity": true
+    }
+  }
+}
