@@ -1,0 +1,111 @@
+RC.14 Core file/voice media-reference PRODUCTION DEPLOYMENT — host command log
+=============================================================================
+Round      : RC14_CORE_FILE_VOICE_MEDIA_REFERENCE_PRODUCTION_DEPLOYMENT
+Host       : unraid 192.168.22.102 (root), SSH MCP profile "unraid"
+Window UTC : 2026-09-17T12:50:29Z .. 2026-09-17T12:57:01Z
+Authorization : explicit operator authorization (AUTHORIZED_CORE_RECREATE_COUNT = 1)
+
+This file contains ONLY commands actually executed on the host, in order.
+No commentary is interleaved: the static guard classifies text and would otherwise
+read documentation as operands.  Interpretation, controls and disclosure are in
+docs/RC14_CORE_FILE_VOICE_MEDIA_REFERENCE_PRODUCTION_DEPLOYMENT_RESULT.md.
+
+Governance target for this round:
+  ACTIVE_CORE_PRODUCTION_DB_FILE_OPENS        = 0
+  ACTIVE_CORE_RAW_SQLITE_READS                = 0
+  ACTIVE_CORE_HOST_NON_CORE_STAGING_DB_READS  = 0     <- deliberately avoided this round
+
+No command below opens any file under the protected Core DB set, and none opens any
+derived store under the account staging tree.
+
+--------------------------------------------------------------------------
+A. Pre-flight baseline (docker inspect + Core HTTP API only)
+--------------------------------------------------------------------------
+
+date -u "+PREFLIGHT_AT=%Y-%m-%dT%H:%M:%SZ"; docker inspect wechat-hub-f-live-core --format "CORE_ID={{.Id}}|IMAGE={{.Config.Image}}|STATUS={{.State.Status}}|RESTARTS={{.RestartCount}}|STARTED={{.State.StartedAt}}|EXIT={{.State.ExitCode}}"; docker inspect wechat-hub-f-live-core --format "OCI_REVISION={{index .Config.Labels \"org.opencontainers.image.revision\"}}|OCI_VERSION={{index .Config.Labels \"org.opencontainers.image.version\"}}"; curl -s -m 10 http://127.0.0.1:18082/health | jq -c "{ok,service,contract_version,accounts,cycles:.sync_worker.cycle_count,failed:.sync_worker.consecutive_failed_cycles,err:.sync_worker.last_cycle_error}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=wechat-agent" | jq -c "{c:.consumer_id,p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=efb-linux-wechat%3Awechat.linux" | jq -c "{c:.consumer_id,p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=wechat-console" | jq -c "{c:.consumer_id,p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/poll?after=0&limit=1" | jq -c "{stream_head_cursor,retention_floor_cursor}"; for c in wechat-hub-f-live-core wechat-hub-f-live-console wechat-hub-f-live-runtime wechat-agent-f-live-a-faf35abb wechat-agent-testb-a7c4f6c8 wechat-hub-f-live-agent wechat-hub-f-live-efb; do printf "%s|" "$c"; docker inspect "$c" --format "{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}"; done
+
+--------------------------------------------------------------------------
+B. Candidate verification: exact digest, overlay byte-identity, render diff
+--------------------------------------------------------------------------
+
+docker pull ghcr.io/onestao/wechat-hub-core@sha256:a0d4f70bff2263518c2d0c0f6e3e6e8ece5945829c2585ac5307965bfca02e47
+docker image inspect sha256:a11731dafc06a93631a5726e1549e479462165efd1b0abd7377dbd877237e165 --format "CONFIG_ID_OK={{.Id}}|OCI_REVISION={{index .Config.Labels \"org.opencontainers.image.revision\"}}|OCI_VERSION={{index .Config.Labels \"org.opencontainers.image.version\"}}|REPO_DIGESTS={{json .RepoDigests}}"
+cd /mnt/user/appdata/wechat-hub-f-live && sha256sum docker-compose.rc14-core-filevoice-media-ref-candidate.yml && wc -c docker-compose.rc14-core-filevoice-media-ref-candidate.yml
+cd /mnt/user/appdata/wechat-hub-f-live && docker compose -f docker-compose.yml -f docker-compose.rc14-core-media-contract-f3-candidate.yml config > /tmp/rc14fv-pre.yml 2>/dev/null; docker compose -f docker-compose.yml -f docker-compose.rc14-core-filevoice-media-ref-candidate.yml config > /tmp/rc14fv-cand.yml 2>/dev/null; diff -u /tmp/rc14fv-pre.yml /tmp/rc14fv-cand.yml; echo "CHANGED_LINES=$(diff -u /tmp/rc14fv-pre.yml /tmp/rc14fv-cand.yml | grep -c '^[+-][^+-]')"
+
+--------------------------------------------------------------------------
+C. Host script transfer (md5-verified, no base64)
+--------------------------------------------------------------------------
+
+printf '%s\n' '#!/bin/bash' ... > /root/rc14fv-deploy.sh; chmod +x /root/rc14fv-deploy.sh; md5sum /root/rc14fv-deploy.sh; wc -c /root/rc14fv-deploy.sh; cat /root/rc14fv-deploy.sh
+printf '%s\n' '#!/bin/bash' ... > /root/rc14fv-window.sh; chmod +x /root/rc14fv-window.sh; md5sum /root/rc14fv-window.sh; wc -c /root/rc14fv-window.sh
+printf '%s\n' '#!/bin/bash' ... > /root/rc14fv-qual.sh; wc -c /root/rc14fv-qual.sh
+printf '%s\n' 'jq -c ...' ... >> /root/rc14fv-qual.sh; wc -c /root/rc14fv-qual.sh
+printf '%s\n' 'jq -c ...' ... >> /root/rc14fv-qual.sh; wc -c /root/rc14fv-qual.sh; md5sum /root/rc14fv-qual.sh
+
+--------------------------------------------------------------------------
+D. THE SINGLE AUTHORIZED MUTATION — Core recreate
+--------------------------------------------------------------------------
+
+setsid nohup bash /root/rc14fv-deploy.sh < /dev/null > /dev/null 2>&1 & disown; echo LAUNCHED
+sleep 30; cat /root/rc14fv-deploy.log
+
+# /root/rc14fv-deploy.sh content:
+#   #!/bin/bash
+#   exec > /root/rc14fv-deploy.log 2>&1
+#   cd /mnt/user/appdata/wechat-hub-f-live
+#   echo "DEPLOY_START_UTC=$(date -u "+%Y-%m-%dT%H:%M:%SZ")"
+#   docker compose -f docker-compose.yml -f docker-compose.rc14-core-filevoice-media-ref-candidate.yml up -d --no-deps core
+#   echo "DEPLOY_RC=$?"
+#   docker inspect wechat-hub-f-live-core --format "AFTER_ID={{.Id}}|IMAGE={{.Config.Image}}|STATUS={{.State.Status}}|RESTARTS={{.RestartCount}}|STARTED={{.State.StartedAt}}"
+#   echo "DEPLOY_END_UTC=$(date -u "+%Y-%m-%dT%H:%M:%SZ")"
+#
+# Note: --no-deps only, and deliberately WITHOUT --remove-orphans (the stopped
+# wechat-hub-f-live-efb / wechat-hub-f-live-agent containers legitimately appear
+# as orphans and must be left alone).
+
+--------------------------------------------------------------------------
+E. Post-deploy qualification (read-only; Core HTTP API only)
+--------------------------------------------------------------------------
+
+date -u "+POSTCHECK_AT=%Y-%m-%dT%H:%M:%SZ"; docker inspect wechat-hub-f-live-core --format "CORE_ID={{.Id}}|IMAGE={{.Config.Image}}|STATUS={{.State.Status}}|RESTARTS={{.RestartCount}}|STARTED={{.State.StartedAt}}"; docker inspect wechat-hub-f-live-core --format "OCI_REVISION={{index .Config.Labels \"org.opencontainers.image.revision\"}}|OCI_VERSION={{index .Config.Labels \"org.opencontainers.image.version\"}}"; curl -s -m 10 http://127.0.0.1:18082/health | jq -c "{ok,service,contract_version,accounts,cycles:.sync_worker.cycle_count,failed:.sync_worker.consecutive_failed_cycles,err:.sync_worker.last_cycle_error}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=wechat-agent" | jq -c "{c:.consumer_id,p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/checkpoint?consumer_id=efb-linux-wechat%3Awechat.linux" | jq -c "{c:.consumer_id,p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "http://127.0.0.1:18082/v1/events/poll?after=0&limit=1" | jq -c "{stream_head_cursor}"; for c in wechat-hub-f-live-core wechat-hub-f-live-console wechat-hub-f-live-runtime wechat-agent-f-live-a-faf35abb wechat-agent-testb-a7c4f6c8 wechat-hub-f-live-agent wechat-hub-f-live-efb; do printf "%s|" "$c"; docker inspect "$c" --format "{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}"; done
+
+sleep 20; curl -s -m 10 http://127.0.0.1:18082/health | jq -c "{cycles:.sync_worker.cycle_count,failed:.sync_worker.consecutive_failed_cycles}"; curl -s -m 10 http://127.0.0.1:18082/v1/accounts | jq -c "."; curl -s -m 10 "http://127.0.0.1:18082/v1/accounts/f-live-a/chats?limit=50" | jq -c "{n:(.chats|length), chats:[.chats[]|{chat_id,type,display_name}]}"
+
+setsid nohup bash /root/rc14fv-window.sh < /dev/null > /dev/null 2>&1 & disown; sleep 25; cat /root/rc14fv-window.log
+
+chmod +x /root/rc14fv-qual.sh; setsid nohup bash /root/rc14fv-qual.sh < /dev/null > /dev/null 2>&1 & disown; sleep 30; cat /root/rc14fv-qual.log
+
+B=http://127.0.0.1:18082; curl -s -m 20 "$B/v1/accounts/f-live-a/chats/38808757431%40chatroom/messages?limit=200" | jq -c "{n:(.messages|length),next:(.next_cursor!=\"\")}"; curl -s -m 20 "$B/v1/accounts/f-live-a/chats/38808757431%40chatroom/messages?limit=200" | jq -c "[.messages[]|select(.media_id!=\"\" and .media_id!=null)|{t:.type,r:.media_role,s:.media_status}]|group_by([.t,.r,.s])|map({(.[0].t+\"/\"+.[0].r+\"/\"+.[0].s):length})|add"; curl -s -m 20 "$B/v1/accounts/f-live-a/chats/38808757431%40chatroom/messages?limit=200" | jq -c "[.messages[]|select(.type==\"video\")|{mid:.message_id,role:.media_role,status:.media_status,media_id:(.media_id!=\"\")}]"; for CH in 50421966048%40chatroom Msg_322ab56072e2971d313c25194cec0212 Msg_a381f30ba58fdccfef74f6085199e1ca; do echo "-- chat $CH --"; curl -s -m 20 "$B/v1/accounts/f-live-a/chats/$CH/messages?limit=200" | jq -c "[.messages[]|select(.type==\"video\")|{mid:.message_id,role:.media_role,status:.media_status}]"; done
+
+curl -s -m 20 -D /tmp/rc14fv-vh.txt -o /tmp/rc14fv-vb.bin "$B/v1/media/19dd1eb1e17dfcc256f7c89ba49e45a8ec805d470438ef0edaf4cda8e10b408c?account_id=f-live-a"; grep -iE "^(HTTP/|content-type:|content-length:|x-media-)" /tmp/rc14fv-vh.txt | tr -d "\r"; wc -c < /tmp/rc14fv-vb.bin
+
+--------------------------------------------------------------------------
+F. Final state capture
+--------------------------------------------------------------------------
+
+date -u "+FINAL_AT=%Y-%m-%dT%H:%M:%SZ"; docker inspect wechat-hub-f-live-core --format "CORE_ID={{.Id}}|IMAGE={{.Config.Image}}|STATUS={{.State.Status}}|RESTARTS={{.RestartCount}}|STARTED={{.State.StartedAt}}"; docker inspect wechat-hub-f-live-core --format "OCI_REVISION={{index .Config.Labels \"org.opencontainers.image.revision\"}}"; curl -s -m 10 http://127.0.0.1:18082/health | jq -c "{ok,contract_version,accounts,cycles:.sync_worker.cycle_count,failed:.sync_worker.consecutive_failed_cycles}"; curl -s -m 10 "$B/v1/events/checkpoint?consumer_id=wechat-agent" | jq -c "{p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "$B/v1/events/checkpoint?consumer_id=efb-linux-wechat%3Awechat.linux" | jq -c "{p:.processed_through_cursor,u:.updated_at}"; curl -s -m 10 "$B/v1/events/poll?after=0&limit=1" | jq -c "{stream_head_cursor}"; for c in wechat-hub-f-live-core wechat-hub-f-live-console wechat-hub-f-live-runtime wechat-agent-f-live-a-faf35abb wechat-agent-testb-a7c4f6c8 wechat-hub-f-live-agent wechat-hub-f-live-efb; do printf "%s|" "$c"; docker inspect "$c" --format "{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}"; done
+
+--------------------------------------------------------------------------
+G. Refused / aborted commands
+--------------------------------------------------------------------------
+
+# None.  No command was refused by the approval gate in this round.
+# No inline python3 one-liner was attempted on the host.
+
+--------------------------------------------------------------------------
+H. Explicit non-actions
+--------------------------------------------------------------------------
+
+# Exactly one service was mutated: core (recreate, taskbook section 4.4).
+# No other container was started, stopped, restarted or recreated.
+# No docker exec into any container.
+# No file open of the protected Core DB set, and no read of any derived store
+#   under the account staging tree (ACTIVE_CORE_HOST_NON_CORE_STAGING_DB_READS = 0).
+# No sqlite3 anywhere on the host.
+# No /dev/shm snapshot, no RAM copy, no DB snapshot.
+# No consumer checkpoint was advanced, reset or rebootstrapped.
+# No EFB effect-ledger or message-mapping state was touched.
+# EFB and Agent were not started.
+# PRODUCTION_EFB_TOUCHED   = NO
+# PRODUCTION_AGENT_TOUCHED = NO
