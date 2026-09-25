@@ -16,7 +16,7 @@
 
 因此，**完整五组件部署当前要求 x86-64/amd64 主机**。arm64 可以运行 Runtime、Core、Console 和 EFB，但不能宣称完整真实微信链路已经通过。
 `main` 和 `latest` 会在每次主线构建时指向同一镜像；这两个标签都不是固定版本。下文默认使用 `main`，长期部署请按发布锁文件改用验收过的镜像摘要。
-**源码仓库公开不等于 GHCR 镜像包公开。** 截至 2026-09-25，匿名访问 Runtime、Core、Console、EFB 镜像均返回 401；AgentWechat 可匿名访问。维护者须在 GitHub 的四个镜像包设置中分别将可见性改为 Public，并从未登录的环境验证拉取，才能向其他用户宣称下面的免登录部署步骤可用。在此之前，有镜像读取权限的账号需要先执行 `docker login ghcr.io`。
+**源码仓库公开不等于 GHCR 镜像包公开。** 维护者须分别核对 Runtime、Core、Console、EFB、AgentWechat 五个镜像包的可见性，并从未登录的环境验证全部可拉取，才能向其他用户宣称下面的免登录部署步骤可用。若某个镜像包仍为 Private，有读取权限的账号需要先执行 `docker login ghcr.io`。
 
 ## 1. 准备
 
