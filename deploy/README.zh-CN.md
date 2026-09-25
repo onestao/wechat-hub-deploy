@@ -94,6 +94,13 @@ docker compose pull
 docker compose up -d
 ```
 
+已启用 EFB 的部署还需执行：
+
+```bash
+docker compose --profile efb pull
+docker compose --profile efb up -d
+```
+
 正式长期运行时，建议把 `.env` 中的 `:main` 改成已经验收的 `sha-*` 标签或 `@sha256:...` 摘要，避免下一次主线构建自动改变运行内容。
 GitHub 构建通过仅证明镜像可以构建且自动化测试通过，不等于在真实微信账号上完成新镜像的收发验收。
 
