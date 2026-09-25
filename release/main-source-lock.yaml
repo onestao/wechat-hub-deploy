@@ -11,11 +11,11 @@ components:
     repository: https://github.com/onestao/wechat-hub-runtime
     branch: main
     validated_source: 793547711a677381ce69040267a0c556f683f1fa
-    promoted_source: b47d26aa3f57b9951a7b8a93742a2f4b10c25386
+    promoted_source: 0bf22dba0a8eb1c4f36400390afe364005436d10
     image: ghcr.io/onestao/wechat-hub-runtime:main
-    published_digest: sha256:a52b148013be53a86f03df17d058ec16c7d7e4135fc0cb8600196a76d63fffa7
-    publish_run: https://github.com/onestao/wechat-hub-runtime/actions/runs/36146275247
-    ci_run: https://github.com/onestao/wechat-hub-runtime/actions/runs/36146275264
+    published_digest: sha256:efd9b2f47c0242939eaa10e63de93ddd250671be473b5e9c31584643331e2520
+    publish_run: https://github.com/onestao/wechat-hub-runtime/actions/runs/36155486188
+    ci_run: https://github.com/onestao/wechat-hub-runtime/actions/runs/36155486118
     platforms: [linux/amd64, linux/arm64]
     live_image_id: sha256:b3b482fd00e8ca2f9ea945145dd4a221b0faf4749ce6ef56bb72f43fa39ae9b0
 
@@ -23,11 +23,11 @@ components:
     repository: https://github.com/onestao/wechat-hub-core
     branch: main
     validated_source: 3e28d64df0152876d6ddb22a53d25938403477f6
-    promoted_source: f22c220b9682678314335624ecdc5aa8f8b5f310
+    promoted_source: c3be701143ad33ce63678f048d47c5c010274cfa
     image: ghcr.io/onestao/wechat-hub-core:main
-    published_digest: sha256:f432d831f51be72eb5b8c3084df2caee4f98b2491dd934948864dfa08d14e29c
-    publish_run: https://github.com/onestao/wechat-hub-core/actions/runs/36146310938
-    ci_run: https://github.com/onestao/wechat-hub-core/actions/runs/36146310937
+    published_digest: sha256:d4d76f965ebcbd3b5fc76f6c8026083955e486a0571eb2f339e4f2b83598d874
+    publish_run: https://github.com/onestao/wechat-hub-core/actions/runs/36155487741
+    ci_run: https://github.com/onestao/wechat-hub-core/actions/runs/36155487730
     platforms: [linux/amd64, linux/arm64]
     live_image_id: sha256:907269a82da18d060757e82bd47bbb8ba4c4e46bc1f7dec987afa1fa6072e688
     note: promoted_source adds the live-validated repaired-message-database handling and CI.
@@ -36,11 +36,11 @@ components:
     repository: https://github.com/onestao/wechat-hub-console
     branch: main
     validated_source: d5582f1f25f6771c4515bb78ffd805ce83759fe4
-    promoted_source: 24f447e2800fe7bc3cd76d5b0290349fbf7896c4
+    promoted_source: 0dd23219aea3f6b97ba25a43518741398b624df2
     image: ghcr.io/onestao/wechat-hub-console:main
-    published_digest: sha256:70a3fd27531ed430fae21b17d188455f88e4fd40a61d45b3f8dd28ba0833563b
-    publish_run: https://github.com/onestao/wechat-hub-console/actions/runs/36146356525
-    ci_run: https://github.com/onestao/wechat-hub-console/actions/runs/36146356612
+    published_digest: sha256:1dfe5dcd5c976150e785ab444f66fa9ee74af33d42dbb85c526923aae2d5b7f4
+    publish_run: https://github.com/onestao/wechat-hub-console/actions/runs/36155501391
+    ci_run: https://github.com/onestao/wechat-hub-console/actions/runs/36155501358
     platforms: [linux/amd64, linux/arm64]
     live_image_id: sha256:1fa80579be73d0a87ee8663f671eaae58d59d9fad7cde3127f790ea872e41799
 
@@ -48,11 +48,11 @@ components:
     repository: https://github.com/onestao/wechat-hub-efb-linux-wechat-slave
     branch: main
     validated_source: 2074740d357f0b0dfac00386bf113978ac27cba9
-    promoted_source: c67308c23d4656f31e34b28d267ab6154a9beca9
+    promoted_source: daf8db354e119dd2e05296f13ef1706f7644a207
     image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave:main
-    published_digest: sha256:935f6d8f424b495301ca352c8733a0f4b3042c21b1149e599d69b903df28746f
-    publish_run: https://github.com/onestao/wechat-hub-efb-linux-wechat-slave/actions/runs/36146412072
-    ci_run: https://github.com/onestao/wechat-hub-efb-linux-wechat-slave/actions/runs/36146411946
+    published_digest: sha256:043bb6a64e875514fdbef61e2cd299a4cc527ddde881c5a5574efd224682b362
+    publish_run: https://github.com/onestao/wechat-hub-efb-linux-wechat-slave/actions/runs/36155485361
+    ci_run: https://github.com/onestao/wechat-hub-efb-linux-wechat-slave/actions/runs/36155485357
     platforms: [linux/amd64, linux/arm64]
     live_image_id: sha256:0abb9ef6a6fe95e4c062fefd90c30963208bc9bb6ef0fd2d80dd0a056ec75748
 
@@ -60,10 +60,10 @@ components:
     repository: https://github.com/onestao/agent-wechat
     branch: wechat-hub-main
     validated_source: 9b40afb39999c9e2281e4f37f379565ff3747f5d
-    promoted_source: 07a98cc7f08868f246ca0eeebb19e9cc39410e97
+    promoted_source: 72829e2d2ad78f507650fcd9ca03decfccb0f2fc
     image: ghcr.io/onestao/wechat-hub-agent-wechat:main
-    published_digest: sha256:86221bbee6f33766d3711f156d4b477a6265241930958aeb955fb5308272f76a
-    publish_run: https://github.com/onestao/agent-wechat/actions/runs/36146462052
+    published_digest: sha256:156af81a98c9b451c368e986d66f5db4557daa99d5690798af83278111d0bac0
+    publish_run: https://github.com/onestao/agent-wechat/actions/runs/36155484720
     platforms: [linux/amd64]
     live_image_id: sha256:7524a35092fddea7408409fc530e3bf9ba0d1ada669aea2e585d0fbb2e847a7f
     note: >-
