@@ -4,6 +4,10 @@
 本批镜像已通过 GitHub 自动构建和测试，尚未替换 NAS 测试环境的真实账号容器进行整套实机验收。已发布镜像的固定摘要和构建记录见 [`release/main-source-lock.yaml`](../release/main-source-lock.yaml)。
 `.env` 中每个参数、数据目录及 EFB 配置文件的用途见 [配置说明](CONFIGURATION.zh-CN.md)。
 
+## 免责声明（Disclaimer）
+
+> 本项目仅供 Linux 桌面环境与消息协议学习交流，请勿用于商业及批量营销。使用者因违规操作导致账号受限与开发者无关。
+
 ## 组件和架构
 
 | 组件 | GHCR 镜像 | amd64 | arm64 | 说明 |
