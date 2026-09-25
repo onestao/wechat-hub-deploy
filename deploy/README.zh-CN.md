@@ -2,6 +2,7 @@
 
 这个目录是当前主线唯一推荐的部署入口。不要混用根目录历史 RC Compose、旧候选镜像或测试报告里的临时命令。
 本批镜像已通过 GitHub 自动构建和测试，尚未替换 NAS 测试环境的真实账号容器进行整套实机验收。已发布镜像的固定摘要和构建记录见 [`release/main-source-lock.yaml`](../release/main-source-lock.yaml)。
+`.env` 中每个参数、数据目录及 EFB 配置文件的用途见 [配置说明](CONFIGURATION.zh-CN.md)。
 
 ## 组件和架构
 
@@ -33,7 +34,7 @@ PASSWORD=一个新的强密码
 WECHAT_HUB_DATA=/mnt/user/appdata/wechat-hub
 ```
 
-`WECHAT_HUB_DATA` 必须指向宿主机上的真实持久化路径。账号登录数据、Core 数据库和 Console 数据都保存在这里。不要把这个示例 Compose 直接覆盖到现有 NAS 测试环境；迁移已有账号数据前应单独核对容器配置和卷路径。
+`WECHAT_HUB_DATA` 必须指向宿主机上的真实持久化路径。账号登录数据、Core 数据库和 Console 数据都保存在这里；EFB 的游标和去重账本由 `EFB_PROFILE_DIR` 保存，也必须备份。不要把这个示例 Compose 直接覆盖到现有 NAS 测试环境；迁移已有账号数据前应单独核对容器配置和卷路径。
 
 ## 2. 启动主链路
 
