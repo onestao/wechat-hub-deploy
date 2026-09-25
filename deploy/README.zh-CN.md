@@ -1,6 +1,7 @@
 # WeChat Hub 主线部署说明
 
 这个目录是当前主线唯一推荐的部署入口。不要混用根目录历史 RC Compose、旧候选镜像或测试报告里的临时命令。
+本批镜像已通过 GitHub 自动构建和测试，尚未替换 NAS 测试环境的真实账号容器进行整套实机验收。已发布镜像的固定摘要和构建记录见 [`release/main-source-lock.yaml`](../release/main-source-lock.yaml)。
 
 ## 组件和架构
 
@@ -19,18 +20,20 @@
 主机需要 Docker Engine 24+ 和 Docker Compose v2。建议至少 4 核、8 GB 内存，并为微信数据准备独立持久化目录。
 
 ```bash
+git clone https://github.com/onestao/wechat-hub-deploy.git
+cd wechat-hub-deploy/deploy
 cp .env.example .env
 mkdir -p data/runtime/config data/runtime/state data/core data/console
 ```
 
-编辑 `.env`，至少修改：
+此时 `WECHAT_HUB_DATA=./data` 即使用刚创建的 `deploy/data/`。如需放到 Unraid 的持久化目录，先创建对应目录，再编辑 `.env`：
 
 ```text
 PASSWORD=一个新的强密码
 WECHAT_HUB_DATA=/mnt/user/appdata/wechat-hub
 ```
 
-`WECHAT_HUB_DATA` 必须是宿主机上的真实持久化路径。账号登录数据、Core 数据库和 Console 数据都保存在这里。
+`WECHAT_HUB_DATA` 必须指向宿主机上的真实持久化路径。账号登录数据、Core 数据库和 Console 数据都保存在这里。不要把这个示例 Compose 直接覆盖到现有 NAS 测试环境；迁移已有账号数据前应单独核对容器配置和卷路径。
 
 ## 2. 启动主链路
 
@@ -39,6 +42,8 @@ docker compose pull
 docker compose up -d wechat-runtime wechat-core wechat-console
 docker compose ps
 ```
+
+若拉取 GHCR 镜像提示无权限，先确认对应镜像包的可见性；有读取权限的账号可执行 `docker login ghcr.io` 后重试。不要在 `.env` 中保存 GitHub 令牌。
 
 浏览器打开：
 
@@ -90,6 +95,7 @@ docker compose up -d
 ```
 
 正式长期运行时，建议把 `.env` 中的 `:main` 改成已经验收的 `sha-*` 标签或 `@sha256:...` 摘要，避免下一次主线构建自动改变运行内容。
+GitHub 构建通过仅证明镜像可以构建且自动化测试通过，不等于在真实微信账号上完成新镜像的收发验收。
 
 回退前先保存当前镜像摘要：
 
