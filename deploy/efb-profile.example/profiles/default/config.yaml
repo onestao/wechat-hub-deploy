@@ -1,0 +1,4 @@
+master_channel: blueset.telegram
+slave_channels:
+  - wechat.linux
+middlewares: []

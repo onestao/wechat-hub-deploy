@@ -1,0 +1,156 @@
+name: wechat-hub
+
+services:
+  wechat-runtime:
+    image: ${RUNTIME_IMAGE:-ghcr.io/onestao/wechat-hub-runtime:main}
+    container_name: wechat-hub-runtime
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-100}
+      PASSWORD: ${PASSWORD:?set PASSWORD in .env}
+      TZ: ${TZ:-Asia/Shanghai}
+      AUTO_START_WECHAT: ${AUTO_START_WECHAT:-true}
+      ENABLE_WECHAT_AUTO_LOGIN: ${ENABLE_WECHAT_AUTO_LOGIN:-true}
+      WECHAT_ACCOUNTS: ${WECHAT_ACCOUNTS:-}
+      WECHAT_DEFAULT_ACCOUNT_ID: ${WECHAT_DEFAULT_ACCOUNT_ID:-default}
+      WECHAT_LEGACY_DEFAULT_ACCOUNT: ${WECHAT_LEGACY_DEFAULT_ACCOUNT:-true}
+      WECHAT_ACCOUNTS_FILE: /config/wechat-runtime/accounts.json
+      WECHAT_ACCOUNT_HOME_ROOT: /config/wechat-accounts
+      WECHAT_RUNTIME_DIR: /run/wechat-runtime
+      WECHAT_RUNTIME_CONTROL_SOCKET: /run/wechat-runtime/control.sock
+      AGENT_WECHAT_IMAGE: ${AGENT_WECHAT_IMAGE:-ghcr.io/onestao/wechat-hub-agent-wechat:main}
+      AGENT_WECHAT_NETWORK: ${WECHAT_HUB_NETWORK:-wechat-hub-internal}
+      AGENT_WECHAT_SHM_MB: ${AGENT_WECHAT_SHM_MB:-512}
+      AGENT_WECHAT_PULL_TIMEOUT: ${AGENT_WECHAT_PULL_TIMEOUT:-900}
+      WECHAT_DESKTOP_GATEWAY_BIND: 0.0.0.0
+      WECHAT_DESKTOP_GATEWAY_PORT: ${WECHAT_DESKTOP_GATEWAY_PORT:-17892}
+      WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME: ${WECHAT_DESKTOP_GATEWAY_PUBLIC_SCHEME:-http}
+      WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST: ${WECHAT_DESKTOP_GATEWAY_PUBLIC_HOST:-}
+      WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT: ${WECHAT_DESKTOP_GATEWAY_PUBLIC_PORT:-}
+      WECHAT_SELKIES_ATTACH_ENABLED: ${WECHAT_SELKIES_ATTACH_ENABLED:-true}
+      SELKIES_CLIPBOARD_ENABLED: false|locked
+      SELKIES_CLIPBOARD_IN_ENABLED: false|locked
+      SELKIES_CLIPBOARD_OUT_ENABLED: false|locked
+      SELKIES_ENABLE_BINARY_CLIPBOARD: false|locked
+      SELKIES_UI_SIDEBAR_SHOW_CLIPBOARD: false|locked
+    volumes:
+      - ${WECHAT_HUB_DATA:-./data}/runtime/config:/config
+      - ${WECHAT_HUB_DATA:-./data}/runtime/state:/run/wechat-runtime
+      - runtime-x11:/tmp/.X11-unix
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - ${RUNTIME_HTTP_BIND:-0.0.0.0}:${RUNTIME_HTTP_PORT:-3000}:3000
+      - ${RUNTIME_HTTPS_BIND:-0.0.0.0}:${RUNTIME_HTTPS_PORT:-3001}:3001
+      - ${DESKTOP_GATEWAY_BIND:-0.0.0.0}:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}
+    shm_size: ${RUNTIME_SHM_SIZE:-1gb}
+    pids_limit: 200
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /run/wechat-runtime/bootstrap.ready && test -S /run/wechat-runtime/control.sock && curl -fsS http://127.0.0.1:${WECHAT_DESKTOP_GATEWAY_PORT:-17892}/healthz >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  wechat-core:
+    image: ${CORE_IMAGE:-ghcr.io/onestao/wechat-hub-core:main}
+    container_name: wechat-hub-core
+    restart: unless-stopped
+    depends_on:
+      wechat-runtime:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      WECHAT_RUNTIME_CONTROL_SOCKET: /run/wechat-runtime/control.sock
+      CORE_REGISTRY_RELOAD_INTERVAL: ${CORE_REGISTRY_RELOAD_INTERVAL:-1}
+    pid: service:wechat-runtime
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    volumes:
+      - ${WECHAT_HUB_DATA:-./data}/runtime/config:/app/config:ro
+      - ${WECHAT_HUB_DATA:-./data}/core:/app/runtime
+      - ${WECHAT_HUB_DATA:-./data}/runtime/state:/run/wechat-runtime
+      - runtime-x11:/tmp/.X11-unix
+    ports:
+      - ${CORE_BIND:-127.0.0.1}:${CORE_PORT:-8080}:8080
+    command:
+      - python
+      - -m
+      - core.app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --registry
+      - /app/config/wechat-runtime/accounts.json
+      - --require-registry
+      - --database
+      - /app/runtime/core/wechat_core.sqlite
+      - --sync-interval
+      - ${CORE_SYNC_INTERVAL:-5}
+      - --send-interval
+      - ${CORE_SEND_INTERVAL:-1}
+      - --registry-reload-interval
+      - ${CORE_REGISTRY_RELOAD_INTERVAL:-1}
+      - --runtime-control-socket
+      - /run/wechat-runtime/control.sock
+    pids_limit: 100
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2).read()"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 5s
+
+  wechat-console:
+    image: ${CONSOLE_IMAGE:-ghcr.io/onestao/wechat-hub-console:main}
+    container_name: wechat-hub-console
+    restart: unless-stopped
+    depends_on:
+      wechat-core:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      WECHAT_CORE_URL: http://wechat-core:8080
+      WECHAT_CONSOLE_RUNTIME_DIR: /data/wechat-console
+    volumes:
+      - ${WECHAT_HUB_DATA:-./data}/console:/data/wechat-console
+    ports:
+      - ${CONSOLE_BIND:-0.0.0.0}:${CONSOLE_PORT:-8078}:8078
+    pids_limit: 100
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8078/api/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  wechat-efb:
+    image: ${EFB_IMAGE:-ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave:main}
+    container_name: wechat-hub-efb
+    profiles: [efb]
+    restart: unless-stopped
+    depends_on:
+      wechat-core:
+        condition: service_healthy
+    volumes:
+      - ${EFB_PROFILE_DIR:-./efb-profile}:/root/.ehforwarderbot
+    command: ["-p", "default"]
+    pids_limit: 100
+    networks:
+      - internal
+
+volumes:
+  runtime-x11:
+
+networks:
+  internal:
+    name: ${WECHAT_HUB_NETWORK:-wechat-hub-internal}

@@ -1,0 +1,11 @@
+core:
+  base_url: http://wechat-core:8080
+  timeout: 10
+  poll_timeout: 15
+  verify_tls: true
+
+account_ids: []
+consumer_id: efb-linux-wechat
+poll_interval: 1.0
+event_limit: 50
+startup_healthcheck: true

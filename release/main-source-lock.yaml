@@ -1,0 +1,64 @@
+release: main-20260925
+status: source-promotion
+description: >-
+  Current live-validated WeChat Hub batch promoted to maintained source lines
+  with automatic GHCR publication. Image digests are filled by GitHub Actions
+  after the first successful main build.
+
+components:
+  runtime:
+    repository: https://github.com/onestao/wechat-hub-runtime
+    branch: main
+    validated_source: 793547711a677381ce69040267a0c556f683f1fa
+    promoted_source: 6cb31fda2460445a9e4ff6c0b5a2a514fb5987d6
+    image: ghcr.io/onestao/wechat-hub-runtime:main
+    platforms: [linux/amd64, linux/arm64]
+    live_image_id: sha256:b3b482fd00e8ca2f9ea945145dd4a221b0faf4749ce6ef56bb72f43fa39ae9b0
+
+  core:
+    repository: https://github.com/onestao/wechat-hub-core
+    branch: main
+    validated_source: 3e28d64df0152876d6ddb22a53d25938403477f6
+    promoted_source: 605d7bca5fd9bd47a22440029ff35754668844a4
+    image: ghcr.io/onestao/wechat-hub-core:main
+    platforms: [linux/amd64, linux/arm64]
+    live_image_id: sha256:907269a82da18d060757e82bd47bbb8ba4c4e46bc1f7dec987afa1fa6072e688
+    note: promoted_source adds the live-validated repaired-message-database handling and CI.
+
+  console:
+    repository: https://github.com/onestao/wechat-hub-console
+    branch: main
+    validated_source: d5582f1f25f6771c4515bb78ffd805ce83759fe4
+    promoted_source: 8e95f5fb6d58f8ad54af2539b530056de0d9cfa8
+    image: ghcr.io/onestao/wechat-hub-console:main
+    platforms: [linux/amd64, linux/arm64]
+    live_image_id: sha256:1fa80579be73d0a87ee8663f671eaae58d59d9fad7cde3127f790ea872e41799
+
+  efb:
+    repository: https://github.com/onestao/wechat-hub-efb-linux-wechat-slave
+    branch: main
+    validated_source: 2074740d357f0b0dfac00386bf113978ac27cba9
+    promoted_source: afc668b09db6fd181a3f1da4bddf1a110c4030ee
+    image: ghcr.io/onestao/wechat-hub-efb-linux-wechat-slave:main
+    platforms: [linux/amd64, linux/arm64]
+    live_image_id: sha256:0abb9ef6a6fe95e4c062fefd90c30963208bc9bb6ef0fd2d80dd0a056ec75748
+
+  agent_wechat:
+    repository: https://github.com/onestao/agent-wechat
+    branch: wechat-hub-main
+    validated_source: 9b40afb39999c9e2281e4f37f379565ff3747f5d
+    promoted_source: eaefce325cbaf70b709f33bb6ea674de42810b13
+    image: ghcr.io/onestao/wechat-hub-agent-wechat:main
+    platforms: [linux/amd64]
+    live_image_id: sha256:7524a35092fddea7408409fc530e3bf9ba0d1ada669aea2e585d0fbb2e847a7f
+    note: >-
+      Includes numbered message database path repair and LF-pinned embedded
+      migrations. arm64 is intentionally withheld until the exact WeChat
+      runtime substrate passes real-account acceptance.
+
+acceptance:
+  live_receive_text: passed
+  live_receive_sticker: passed
+  efb_checkpoint_advanced: passed
+  duplicate_delivery_observed: false
+  historical_gap_reconciled: false
