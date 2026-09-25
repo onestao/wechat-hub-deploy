@@ -35,7 +35,7 @@
 | `EFB_IMAGE` | 可选 EFB/Telegram 转发容器的镜像。 |
 | `AGENT_WECHAT_IMAGE` | Runtime 按账号创建的 AgentWechat 子容器默认镜像；账号注册表内若显式指定镜像，则账号设置优先。 |
 
-示例的五项都使用 `:main`，每次主线发布可能改变其内容。长期运行应从 [发布锁文件](../release/main-source-lock.yaml) 选取已经验收的 `@sha256:...` 摘要逐项填写；改动镜像项并重建 Compose 容器，不保证已经运行的 AgentWechat 子容器随之切换，需核对账号注册表及子容器的实际镜像。完整微信链路目前仅在 `amd64` 有 AgentWechat 镜像。
+示例的五项都使用 `:main`；每次主线发布也同时更新同一镜像的 `:latest` 别名，两者都是可变标签。长期运行应从 [发布锁文件](../release/main-source-lock.yaml) 选取已经验收的 `@sha256:...` 摘要逐项填写；改动镜像项并重建 Compose 容器，不保证已经运行的 AgentWechat 子容器随之切换，需核对账号注册表及子容器的实际镜像。完整微信链路目前仅在 `amd64` 有 AgentWechat 镜像。
 
 ## 对外访问
 

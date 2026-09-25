@@ -15,6 +15,7 @@
 | AgentWechat | `ghcr.io/onestao/wechat-hub-agent-wechat:main` | 支持 | 暂不发布 | 当前真实账号验收使用的是固定 amd64 微信运行底座 |
 
 因此，**完整五组件部署当前要求 x86-64/amd64 主机**。arm64 可以运行 Runtime、Core、Console 和 EFB，但不能宣称完整真实微信链路已经通过。
+`main` 和 `latest` 会在每次主线构建时指向同一镜像；这两个标签都不是固定版本。下文默认使用 `main`，长期部署请按发布锁文件改用验收过的镜像摘要。
 
 ## 1. 准备
 
